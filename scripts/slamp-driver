@@ -1,0 +1,239 @@
+#!/bin/bash
+
+# not set LTO: no -flto
+# LTO=0: use -flto but do not turn on tailoring optimizations
+# LTO=1: use -flto and turn on tailoring optimizations
+LTO=0
+
+function drive {
+  # $1: .bc file
+  # $2: target fcn
+  # $3: target loop
+
+  # EXTRA="-basicaa -globals-aa -cfl-steens-aa -tbaa -scev-aa -cfl-anders-aa -objc-arc-aa -scoped-noalias -veto -nander"
+  EXTRA="-basicaa -globals-aa -cfl-steens-aa -tbaa -scev-aa -objc-arc-aa -scoped-noalias -veto -nander"
+  local SLAMP_LIBS="
+     -load $NOELLE_LIBS_DIR/CallGraph.so 
+     -load $NOELLE_LIBS_DIR/libSvf.so 
+     -load $NOELLE_LIBS_DIR/libCudd.so -stat=false  
+     -load $SCAF_LIBS_DIR/libSCAFUtilities.so
+     -load $SCAF_LIBS_DIR/libMemoryAnalysisModules.so
+     -load $LIBERTY_LIBS_DIR/libUtil.so
+     -load $LIBERTY_LIBS_DIR/libStrategy.so
+     -load $SCAF_LIBS_DIR/libLoopProf.so
+     -load $SCAF_LIBS_DIR/libLAMPLoad.so
+     -load $LIBERTY_LIBS_DIR/libPointsToProfiler.so
+     -load $NOELLE_LIBS_DIR/AllocAA.so
+     -load $NOELLE_LIBS_DIR/TalkDown.so 
+     -load $NOELLE_LIBS_DIR/CallGraph.so 
+     -load $NOELLE_LIBS_DIR/PDGAnalysis.so 
+     -load $NOELLE_LIBS_DIR/Architecture.so 
+     -load $NOELLE_LIBS_DIR/BasicUtilities.so 
+     -load $NOELLE_LIBS_DIR/Task.so 
+     -load $NOELLE_LIBS_DIR/DataFlow.so 
+     -load $NOELLE_LIBS_DIR/HotProfiler.so 
+     -load $NOELLE_LIBS_DIR/LoopStructure.so 
+     -load $NOELLE_LIBS_DIR/Invariants.so 
+     -load $NOELLE_LIBS_DIR/InductionVariables.so 
+     -load $NOELLE_LIBS_DIR/Loops.so 
+     -load $NOELLE_LIBS_DIR/Scheduler.so 
+     -load $NOELLE_LIBS_DIR/OutlinerPass.so 
+     -load $NOELLE_LIBS_DIR/MetadataManager.so 
+     -load $NOELLE_LIBS_DIR/LoopTransformer.so 
+     -load $NOELLE_LIBS_DIR/Noelle.so 
+     -load $SCAF_LIBS_DIR/libSpeculationModules.so 
+     -load $LIBERTY_LIBS_DIR/libSLAMP.so
+     -basic-loop-aa -scev-loop-aa -auto-restrict-aa -intrinsic-aa -global-malloc-aa -pure-fun-aa -semi-local-fun-aa -phi-maze-aa -no-capture-global-aa -no-capture-src-aa -type-aa -no-escape-fields-aa -acyclic-aa -disjoint-fields-aa -field-malloc-aa -loop-variant-allocation-aa -std-in-out-err-aa -array-of-structures-aa -kill-flow-aa -callsite-depth-combinator-aa -unique-access-paths-aa $EXTRA -llvm-aa-results  -pdgbuilder "
+
+  # local SLAMP_HOOKS="$LIBERTY_LIBS_DIR/libslamp_hooks_stats.a"
+  local SLAMP_HOOKS="/u/NAS_SCRATCH/ziyangx/cpf-workspace-9-master/build/cpf-build-release/lib/SLAMP/SLAMPcustom/libslamp_hooks_custom.a"
+  # local SLAMP_HOOKS="/u/NAS_SCRATCH/ziyangx/cpf-workspace-9-master/build/cpf-build-release/lib/SLAMP/SLAMPsmtxq/libslamp_hooks_smtx.a"
+  local SLAMP_OUTFILE="$2-$3.result.slamp.profile"
+
+ local OPTS="-slamp-insts -slamp-target-fn=$2 -slamp-target-loop=$3 $EXTRA_FLAGS -slamp-outfile=$SLAMP_OUTFILE"
+
+  # if [[ x$LOCALWRITE_THREADS != x ]]; then
+    # OPTS="$OPTS -slamp-localwrite-module=1"
+  # fi
+  
+  #local OPTS="-slamp-insts --print-load-static-id=true -slamp-target-fn=$2 -slamp-target-loop=$3 -slamp-outfile=$SLAMP_OUTFILE"
+  local PRELINK_BC="`basename $1 .bc`.slamp.prelink.bc"
+  local PRELINK_OBJ="`basename $1 .bc`.slamp.prelink.o"
+  # if EXE is in environment variable, use it
+  if [[ x$EXE != x ]]; then
+      EXE=$EXE
+  else
+      # EXE="`basename $1 .bc`.slamp.prompt.exe"
+      # EXE="`basename $1 .bc`.slamp.prompt-noinline.exe"
+      EXE="`basename $1 .bc`.slamp.exe"
+  fi
+
+  if [[ x$DEBUG != x ]]; then
+    OPTS+=" -debug-only=$DEBUG"
+  fi
+  
+  local CMD1="opt $SLAMP_LIBS $OPTS -o $PRELINK_BC $1"
+  local CMD2="clang -c -o $PRELINK_OBJ $PRELINK_BC"
+  local CMD3="" 
+  # local CMD3="clang++ -no-pie  -O2 $PRELINK_OBJ $SLAMP_HOOKS -o $EXE -g $DEFAULT_LDFLAGS -lunwind $DEFAULT_LIBS -ldl -lutil" 
+  #local CMD3="g++ -Og $PRELINK_OBJ $SLAMP_HOOKS -o $EXE -g $DEFAULT_LDFLAGS -lunwind $DEFAULT_LIBS -ldl -lutil" 
+
+  # RAW_CMD3="clang++ -no-pie  -O2 $PRELINK_OBJ $SLAMP_HOOKS -g $LINKING_OPTS -lunwind $DEFAULT_LIBS -ldl -lutil" 
+  RAW_CMD3="clang++ -no-pie  -O2 $PRELINK_OBJ $SLAMP_HOOKS -g $LINKING_OPTS -lunwind $DEFAULT_LIBS -ldl -lutil -lpthread -lrt " 
+  if [[ x$LTO != x ]]; then
+      RAW_CMD3+=" -flto"
+  fi
+
+  if [[ x$LOCALWRITE_THREADS != x ]]; then
+      RAW_CMD3="clang++ -no-pie  -O2 $PRELINK_OBJ $SLAMP_HOOKS -g $LINKING_OPTS -lunwind $DEFAULT_LIBS -ldl -lutil" 
+      #RAW_CMD3="clang++ -flto -no-pie  -O2 $PRELINK_OBJ $SLAMP_HOOKS -g $LINKING_OPTS -lunwind $DEFAULT_LIBS -ldl -lutil" 
+
+      CMD3="localwrite-compile $LOCALWRITE_THREADS $RAW_CMD3"
+  else
+      if [[ x$LTO != x ]]; then
+          echo -e "#include <stdio.h>\nconst char LOCALWRITE_MODULE=0;const size_t LOCALWRITE_MASK=0; const size_t LOCALWRITE_PATTERN=0;" | clang -x c -flto -c -o constants.o -
+      else
+          echo -e "#include <stdio.h>\nconst char LOCALWRITE_MODULE=0;const size_t LOCALWRITE_MASK=0; const size_t LOCALWRITE_PATTERN=0;" | clang -x c -c -o constants.o -
+      fi
+      # CMD3="clang++ -flto -no-pie  -O2 $PRELINK_OBJ $SLAMP_HOOKS constants.o -o $EXE -g $LINKING_OPTS -lunwind $DEFAULT_LIBS -ldl -lutil"
+      CMD3="clang++ -no-pie  -O2 $PRELINK_OBJ $SLAMP_HOOKS -o $EXE -g $LINKING_OPTS -lunwind $DEFAULT_LIBS -ldl -lutil  -lpthread -lrt"
+      #CMD3="clang++ -no-pie  -O2 $PRELINK_OBJ $SLAMP_HOOKS -mllvm -inline-threshold=5000 -o $EXE -g $LINKING_OPTS -lunwind $DEFAULT_LIBS -ldl -lutil"
+  fi
+
+  if [[ x$LTO != x ]]; then
+      CMD2+=" -flto"
+      CMD3+=" -flto"
+  fi
+
+  # if LOCALWRITE_THREADS then constant will be different
+  if [[ x$LOCALWRITE_THREADS == x ]] ; then
+      CMD3+=" constants.o"
+  fi
+
+  local CMD4="stdbuf -o0 -e0 ./$EXE $PROFILEARGS"
+  # if use localwrite
+  if [[ x$LOCALWRITE_THREADS != x ]]; then
+      CMD4="localwrite $LOCALWRITE_THREADS $PROFILEARGS"
+  fi
+
+  red='\e[0;31m'
+  nc='\e[0m'
+  echo -e "${red}>>> slamp-driver Processing $2::$3${nc}"
+  echo -e "${red}    --- Generate Simulator...${nc}"
+  echo $CMD1
+  $CMD1
+  echo $CMD2
+  $CMD2
+  echo $CMD3
+  $CMD3
+  echo $CMD3
+
+  echo -e "${red}    --- Run Simulator...${nc}"
+  echo $CMD4
+  #time $CMD4 > /dev/null 2>&1
+
+  # CMD4="taskset --cpu-list 7-8 $CMD4"
+
+  rm -f /dev/shm/MySharedMemory2 /dev/shm/MySharedMemory
+
+  # create a random number between 0 and 999
+  slamp_queue_id=$(($RANDOM%1000))
+
+  # check if /dev/shm/slamp_queue_$id exists and if so, create a new random number
+  while [ -e /dev/shm/slamp_queue_$slamp_queue_id ]; do
+      slamp_queue_id=$(($RANDOM%1000))
+  done
+
+
+  # # taskset --cpu-list 0-6,9-55 /u/NAS_SCRATCH/ziyangx/cpf-workspace-9-master/cpf/liberty/lib/SLAMP/SLAMPcustom/consumer/build/consumer &
+  # /u/NAS_SCRATCH/ziyangx/cpf-workspace-9-master/cpf/liberty/lib/SLAMP/SLAMPsmtxq/consumer/build/consumer &
+  SLAMP_QUEUE_ID=$slamp_queue_id /usr/bin/time -v /u/NAS_SCRATCH/ziyangx/cpf-workspace-9-master/cpf/liberty/lib/SLAMP/SLAMPcustom/consumer/build/consumer &
+  CONSUME_PID=$!
+  RUN_TIMEOUT=7200 # 2 hours
+  echo "timeout $RUN_TIMEOUT SLAMP_QUEUE_ID=$slamp_queue_id $CMD4"
+  SLAMP_QUEUE_ID=$slamp_queue_id eval /usr/bin/time -v regressions-watchdog $RUN_TIMEOUT slamp-custom.time $CMD4
+  # eval regressions-watchdog $RUN_TIMEOUT slamp-smtx.time $CMD4
+  # if command fail
+  if [ $? -ne 0 ]; then
+      # print in red
+      kill -9 $CONSUME_PID
+      echo -e "${red}    --- SIMULATION FAILED${nc}"
+      echo "Timed out or other problems"
+      rm -f result.slamp.profile
+      rm -f /dev/shm/slamp_queue_$slamp_queue_id
+      exit 1
+  else
+      # sleep for 20 seconds
+      sleep 10
+      # sleep 0
+      cat deplog*.txt >> result.slamp.profile
+      rm -f deplog*.txt
+      rm -f /dev/shm/slamp_queue_$slamp_queue_id
+  fi
+
+  if [[ x$LOCALWRITE_THREADS != x ]]; then
+      # combine files
+      combine_localwrite.py $2 $3
+  fi
+
+  # if there's file called points_to.profile, prefix it with $2-$3
+  if [[ -f points_to.profile ]]; then
+      mv points_to.profile $2-$3.points_to.profile
+  fi
+  cat $SLAMP_OUTFILE >> result.slamp.profile
+  rm -f $SLAMP_OUTFILE # ${SLAMP_OUTFILE}_*
+  # rm -f $SLAMP_OUTFILE $PRELINK_BC $PRELINK_OBJ $EXE
+}
+
+# Determine if the user specified a function
+FCN=
+if [[ x$2 != x ]]
+then
+  FCN="-target-fcn=$2"
+fi
+
+# Determine if the user specified a loop
+LOOP=
+if [[ x$3 != x ]]
+then
+  LOOP="-target-loop=$3"
+fi
+
+# In lib/LoopProf/Targets.cpp, target-list argument has a precedence over 
+# target-fcn and target-loop thing. However, in here we want to reverse 
+# the precedence - If target-fcn and target-loop is given, ignore target-list
+
+LIST=
+if [[ x$FCN == x && x$LOOP == x && -f .targetlist ]]
+then
+  LIST="-target-list="`cat .targetlist`
+fi
+
+LIBS="-load $SCAF_LIBS_DIR/libSCAFUtilities.so 
+      -load $LIBERTY_LIBS_DIR/libUtil.so
+      -load $LIBERTY_LIBS_DIR/libLoopProf.so"
+OPTS="-targets "
+
+CMD="$PREFIX opt $LIBS $OPTS $FCN $LOOP $LIST $1"
+
+echo Running: $CMD
+#ulimit -S -v $[100*1024*1024]
+$CMD > /dev/null 2> __targets.txt
+
+declare -a lines
+let i=0
+while IFS=$'\n' read -r line_data; do
+  lines[i]="${line_data}"
+  ((++i))
+done < __targets.txt
+
+let i=0
+while (( i < 2 )); do
+# while (( ${#lines[@]} > i )); do
+  IFS=' ' read -a array <<< ${lines[i++]}
+  if [ ${array[0]} == "-" ]; then
+    drive $1 ${array[1]} ${array[3]}
+  fi
+done
+
+#rm -f __targets.txt
