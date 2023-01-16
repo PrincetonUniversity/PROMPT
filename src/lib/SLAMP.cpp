@@ -14,10 +14,12 @@
 #include "scaf/SpeculationModules/PDGBuilder.hpp"
 #endif
 
-#include "liberty/SLAMP/SLAMP.h"
-#include "liberty/SLAMP/externs.h"
+#include "SLAMP.h"
+#include "externs.h"
+#include "CastUtil.h"
+#include "Indeterminate.h"
+
 #include "scaf/Utilities/CallSiteFactory.h"
-#include "liberty/PointsToProfiler/Indeterminate.h"
 
 #include "llvm/IR/CFG.h"
 #include "llvm/ADT/Statistic.h"
@@ -27,7 +29,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
-#include "liberty/Utilities/CastUtil.h"
 #include "scaf/Utilities/GlobalCtors.h"
 #include "scaf/Utilities/InsertPrintf.h"
 #include "scaf/Utilities/InstInsertPt.h"

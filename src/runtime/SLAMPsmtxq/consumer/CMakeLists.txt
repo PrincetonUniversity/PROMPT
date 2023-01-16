@@ -16,9 +16,11 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories(./
     ../)
 
-add_executable (consumer consumer.cpp ../sw_queue.c ProfilingModules/DependenceModule.cpp)
-target_link_libraries(consumer LINK_PUBLIC 
+add_executable (consumer_smtx consumer.cpp ../sw_queue.c ProfilingModules/DependenceModule.cpp)
+target_link_libraries(consumer_smtx LINK_PUBLIC 
 	${Boost_LIBRARIES}
 	rt
-	Threads::Threads
-)
+    Threads::Threads)
+
+# install this
+install(TARGETS consumer_smtx DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)

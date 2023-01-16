@@ -80,7 +80,7 @@ private:
 public:
   DependenceModule(uint32_t mask, uint32_t pattern)
       : LocalWriteModule(mask, pattern) {
-    smmap = new slamp::MemoryMap(mask, pattern, DM_TIMESTAMP_SIZE_IN_BYTES);
+    smmap = new slamp::MemoryMap<MASK2>(mask, pattern, DM_TIMESTAMP_SIZE_IN_BYTES);
 #ifdef COLLECT_TRACE
     dep_trace.reserve(dep_trace_size + 10); // 10M
 #endif

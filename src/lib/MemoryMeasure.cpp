@@ -7,7 +7,7 @@
 #include "llvm/Pass.h"
 #include "llvm/PassAnalysisSupport.h"
 
-#include "liberty/SLAMP/SLAMP.h"
+#include "SLAMP.h"
 #include "scaf/Utilities/GlobalCtors.h"
 #include "scaf/Utilities/Metadata.h"
 

@@ -17,8 +17,6 @@ set(PassName "slamp_hooks_stats")
 
 
 add_llvm_library(${PassName} STATIC ${SRCS})
-# target_link_libraries(${PassName} nng::nng)
-# add_llvm_library(${PassName}_shared SHARED ${SRCS})
-# set_target_properties(${PassName}_shared PROPERTIES OUTPUT_NAME ${PassName})
-# set_property(TARGET ${PassName} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-#add_llvm_library(${PassName} SHARED ${SRCS}) # This is to generate libxxx.so
+
+# install this
+install(TARGETS ${PassName} DESTINATION ${CMAKE_INSTALL_PREFIX}/runtime)

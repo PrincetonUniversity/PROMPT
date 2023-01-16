@@ -16,9 +16,12 @@ find_package(Threads REQUIRED)
 find_package(Boost 1.80.0 REQUIRED COMPONENTS system)
 include_directories(${Boost_INCLUDE_DIRS})
 
-add_executable (consumer consumer.cpp ./ProfilingModules/DependenceModule.cpp)
-target_link_libraries(consumer LINK_PUBLIC 
+add_executable (consumer_boost consumer.cpp ./ProfilingModules/DependenceModule.cpp)
+target_link_libraries(consumer_boost LINK_PUBLIC 
 	${Boost_LIBRARIES}
 	rt
 	Threads::Threads
 )
+
+# install this
+install(TARGETS consumer_boost DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)

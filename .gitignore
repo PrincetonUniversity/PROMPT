@@ -38,6 +38,7 @@
 # Various tag programs
 /llvm-liberty-objects
 
+/install
 /tags
 /liberty/tags
 /TAGS

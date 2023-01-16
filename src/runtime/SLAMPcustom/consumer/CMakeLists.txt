@@ -18,9 +18,12 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories(./
     ../)
 
-add_executable (consumer consumer.cpp ProfilingModules/DependenceModule.cpp ProfilingModules/PointsToModule.cpp ProfilingModules/LoadedValueModule.cpp ProfilingModules/ObjectLifetimeModule.cpp)
-target_link_libraries(consumer LINK_PUBLIC 
+add_executable (consumer_custom consumer.cpp ProfilingModules/DependenceModule.cpp ProfilingModules/PointsToModule.cpp ProfilingModules/LoadedValueModule.cpp ProfilingModules/ObjectLifetimeModule.cpp)
+target_link_libraries(consumer_custom LINK_PUBLIC 
 	${Boost_LIBRARIES}
 	rt
 	Threads::Threads
 )
+
+# install this
+install(TARGETS consumer_custom DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
