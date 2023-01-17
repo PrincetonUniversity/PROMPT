@@ -2,7 +2,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "ProfilingModules/parallel_hashmap/phmap.h"
+#include "parallel_hashmap/phmap.h"
 #include "slamp_logger.h"
 #include "slamp_shadow_mem.h"
 #include "slamp_timestamp.h"

@@ -3,9 +3,9 @@
 ### TODOs
 
 #### Decoupling
-- [ ] Compile with NOELLE and SCAF
+- [x] Compile with NOELLE and SCAF
 - [ ] Compile with NOELLE and optional SCAF
-- [ ] Seperate all profiling modules out
+- [x] Seperate all profiling modules out
 - [ ] Convert producer library to be configurable
 
 #### Implementation

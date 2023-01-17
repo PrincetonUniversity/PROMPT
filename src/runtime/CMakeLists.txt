@@ -1,4 +1,5 @@
 # frontend
+add_subdirectory(ProfilingModules)
 add_subdirectory(SLAMPboost)
 add_subdirectory(SLAMPcustom)
 add_subdirectory(SLAMPsmtxq)
