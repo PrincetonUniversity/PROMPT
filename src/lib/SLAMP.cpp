@@ -8,32 +8,34 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/raw_ostream.h"
 
-#define USE_PDG
+// #define USE_PDG
 
 #ifdef USE_PDG
 #include "scaf/SpeculationModules/PDGBuilder.hpp"
 #endif
+
 
 #include "SLAMP.h"
 #include "externs.h"
 #include "CastUtil.h"
 #include "Indeterminate.h"
 
-#include "scaf/Utilities/CallSiteFactory.h"
 
-#include "llvm/IR/CFG.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/IR/CFG.h"
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
+#include "scaf/Utilities/CallSiteFactory.h"
 #include "scaf/Utilities/GlobalCtors.h"
 #include "scaf/Utilities/InsertPrintf.h"
 #include "scaf/Utilities/InstInsertPt.h"
-#include "scaf/Utilities/ModuleLoops.h"
 #include "scaf/Utilities/Metadata.h"
+#include "scaf/Utilities/ModuleLoops.h"
 #include "scaf/Utilities/PDGQueries.h"
 
 #include <sstream>
@@ -989,7 +991,7 @@ void SLAMP::instrumentBasePointer(Module &m, Loop* l) {
 
   for (auto &F : m) {
     for (auto &BB : F) {
-      Indeterminate::findIndeterminateObjects(BB, indeterminate_pointers, indeterminate_objects);
+      SpecPriv::Indeterminate::findIndeterminateObjects(BB, indeterminate_pointers, indeterminate_objects);
     }
   }
 

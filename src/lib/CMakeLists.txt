@@ -41,8 +41,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include
 enable_language(C CXX)
 
 file(GLOB SRCS
-    "SLAMP.cpp"
-    "MemoryMeasure.cpp"
+    "*.cpp"
 )
 
 # Compilation flags
