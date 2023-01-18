@@ -30,9 +30,15 @@
 - [ ] Test with way bigger benchmarks
 
 #### Documentation
+- [ ] Preprocessing tasks
 - [ ] Simple demo
 - [ ] Get started doc
 - [ ] Extending with new profiler doc
+
+### Preprocessing
+
+- Single LLVM bitcode file (is it required?)
+- Metadata ID for functions, basic blocks, and instructions
 
 ### Modules
 
