@@ -14,43 +14,44 @@ if [ -z "$SLAMP_LIB_PATH" ]; then
     SLAMP_LIB_PATH="$LIBERTY_LIBS_DIR/libSLAMP.so"
 fi
 
+# EXTRA="-basicaa -globals-aa -cfl-steens-aa -tbaa -scev-aa -cfl-anders-aa -objc-arc-aa -scoped-noalias -veto -nander"
+EXTRA="-basicaa -globals-aa -cfl-steens-aa -tbaa -scev-aa -objc-arc-aa -scoped-noalias -veto -nander"
+# -load $SCAF_LIBS_DIR/libSpeculationModules.so 
+SLAMP_LIBS="
+ -load $NOELLE_LIBS_DIR/CallGraph.so 
+ -load $NOELLE_LIBS_DIR/libSvf.so 
+ -load $NOELLE_LIBS_DIR/libCudd.so -stat=false  
+ -load $SCAF_LIBS_DIR/libSCAFUtilities.so
+ -load $SCAF_LIBS_DIR/libMemoryAnalysisModules.so
+ -load $SCAF_LIBS_DIR/libLoopProf.so
+ -load $SCAF_LIBS_DIR/libLAMPLoad.so
+ -load $NOELLE_LIBS_DIR/AllocAA.so
+ -load $NOELLE_LIBS_DIR/TalkDown.so 
+ -load $NOELLE_LIBS_DIR/CallGraph.so 
+ -load $NOELLE_LIBS_DIR/PDGAnalysis.so 
+ -load $NOELLE_LIBS_DIR/Architecture.so 
+ -load $NOELLE_LIBS_DIR/BasicUtilities.so 
+ -load $NOELLE_LIBS_DIR/Task.so 
+ -load $NOELLE_LIBS_DIR/DataFlow.so 
+ -load $NOELLE_LIBS_DIR/HotProfiler.so 
+ -load $NOELLE_LIBS_DIR/LoopStructure.so 
+ -load $NOELLE_LIBS_DIR/Invariants.so 
+ -load $NOELLE_LIBS_DIR/InductionVariables.so 
+ -load $NOELLE_LIBS_DIR/Loops.so 
+ -load $NOELLE_LIBS_DIR/Scheduler.so 
+ -load $NOELLE_LIBS_DIR/OutlinerPass.so 
+ -load $NOELLE_LIBS_DIR/MetadataManager.so 
+ -load $NOELLE_LIBS_DIR/LoopTransformer.so 
+ -load $NOELLE_LIBS_DIR/Noelle.so 
+ -load $SLAMP_LIB_PATH
+ -basic-loop-aa -scev-loop-aa -auto-restrict-aa -intrinsic-aa -global-malloc-aa -pure-fun-aa -semi-local-fun-aa -phi-maze-aa -no-capture-global-aa -no-capture-src-aa -type-aa -no-escape-fields-aa -acyclic-aa -disjoint-fields-aa -field-malloc-aa -loop-variant-allocation-aa -std-in-out-err-aa -array-of-structures-aa -kill-flow-aa -callsite-depth-combinator-aa -unique-access-paths-aa $EXTRA -llvm-aa-results "
+ #  -pdgbuilder
+
 function drive {
   # $1: .bc file
   # $2: target fcn
   # $3: target loop
 
-  # EXTRA="-basicaa -globals-aa -cfl-steens-aa -tbaa -scev-aa -cfl-anders-aa -objc-arc-aa -scoped-noalias -veto -nander"
-  EXTRA="-basicaa -globals-aa -cfl-steens-aa -tbaa -scev-aa -objc-arc-aa -scoped-noalias -veto -nander"
-  # -load $SCAF_LIBS_DIR/libSpeculationModules.so 
-  local SLAMP_LIBS="
-     -load $NOELLE_LIBS_DIR/CallGraph.so 
-     -load $NOELLE_LIBS_DIR/libSvf.so 
-     -load $NOELLE_LIBS_DIR/libCudd.so -stat=false  
-     -load $SCAF_LIBS_DIR/libSCAFUtilities.so
-     -load $SCAF_LIBS_DIR/libMemoryAnalysisModules.so
-     -load $SCAF_LIBS_DIR/libLoopProf.so
-     -load $SCAF_LIBS_DIR/libLAMPLoad.so
-     -load $NOELLE_LIBS_DIR/AllocAA.so
-     -load $NOELLE_LIBS_DIR/TalkDown.so 
-     -load $NOELLE_LIBS_DIR/CallGraph.so 
-     -load $NOELLE_LIBS_DIR/PDGAnalysis.so 
-     -load $NOELLE_LIBS_DIR/Architecture.so 
-     -load $NOELLE_LIBS_DIR/BasicUtilities.so 
-     -load $NOELLE_LIBS_DIR/Task.so 
-     -load $NOELLE_LIBS_DIR/DataFlow.so 
-     -load $NOELLE_LIBS_DIR/HotProfiler.so 
-     -load $NOELLE_LIBS_DIR/LoopStructure.so 
-     -load $NOELLE_LIBS_DIR/Invariants.so 
-     -load $NOELLE_LIBS_DIR/InductionVariables.so 
-     -load $NOELLE_LIBS_DIR/Loops.so 
-     -load $NOELLE_LIBS_DIR/Scheduler.so 
-     -load $NOELLE_LIBS_DIR/OutlinerPass.so 
-     -load $NOELLE_LIBS_DIR/MetadataManager.so 
-     -load $NOELLE_LIBS_DIR/LoopTransformer.so 
-     -load $NOELLE_LIBS_DIR/Noelle.so 
-     -load $SLAMP_LIB_PATH
-     -basic-loop-aa -scev-loop-aa -auto-restrict-aa -intrinsic-aa -global-malloc-aa -pure-fun-aa -semi-local-fun-aa -phi-maze-aa -no-capture-global-aa -no-capture-src-aa -type-aa -no-escape-fields-aa -acyclic-aa -disjoint-fields-aa -field-malloc-aa -loop-variant-allocation-aa -std-in-out-err-aa -array-of-structures-aa -kill-flow-aa -callsite-depth-combinator-aa -unique-access-paths-aa $EXTRA -llvm-aa-results "
-     #  -pdgbuilder
 
   local SLAMP_OUTFILE="$2-$3.result.slamp.profile"
   local OPTS="-slamp-insts -slamp-target-fn=$2 -slamp-target-loop=$3 $EXTRA_FLAGS -slamp-outfile=$SLAMP_OUTFILE"
@@ -140,55 +141,57 @@ function drive {
   # rm -f $SLAMP_OUTFILE $PRELINK_BC $PRELINK_OBJ $EXE
 }
 
-# Determine if the user specified a function
-FCN=
-if [[ x$2 != x ]]
-then
-  FCN="-target-fcn=$2"
+# $1 is the bc file
+# $2 is the function name
+# $3 is the loop id
+
+# if $2 and $3 are set, run driver on $1 $2 $3
+if [[ x$2 != x && x$3 != x ]]; then
+    # create a new bc name with .named.bc
+    NAMED_BC="`basename $1 .bc`.named.bc"
+    opt $1 -o $NAMED_BC $SLAMP_LIBS -metadata-namer
+    drive $NAMED_BC $2 $3
+else
+    # otherwise, use loop profile and run all different loops 
+    # Determine if the user specified a function
+    FCN=
+    if [[ x$2 != x ]]
+    then
+      FCN="-target-fcn=$2"
+    fi
+
+    # Determine if the user specified a loop
+    LOOP=
+    if [[ x$3 != x ]]
+    then
+      LOOP="-target-loop=$3"
+    fi
+
+    LIBS="-load $SCAF_LIBS_DIR/libSCAFUtilities.so 
+          -load $LIBERTY_LIBS_DIR/libUtil.so
+          -load $LIBERTY_LIBS_DIR/libLoopProf.so"
+    OPTS="-targets "
+
+    CMD="$PREFIX opt $LIBS $OPTS $FCN $LOOP $LIST $1"
+
+    echo Running: $CMD
+    #ulimit -S -v $[100*1024*1024]
+    $CMD > /dev/null 2> __targets.txt
+
+    declare -a lines
+    let i=0
+    while IFS=$'\n' read -r line_data; do
+      lines[i]="${line_data}"
+      ((++i))
+    done < __targets.txt
+
+    let i=0
+    while (( ${#lines[@]} > i )); do
+      IFS=' ' read -a array <<< ${lines[i++]}
+      if [ ${array[0]} == "-" ]; then
+        drive $1 ${array[1]} ${array[3]}
+      fi
+    done
 fi
-
-# Determine if the user specified a loop
-LOOP=
-if [[ x$3 != x ]]
-then
-  LOOP="-target-loop=$3"
-fi
-
-# In lib/LoopProf/Targets.cpp, target-list argument has a precedence over 
-# target-fcn and target-loop thing. However, in here we want to reverse 
-# the precedence - If target-fcn and target-loop is given, ignore target-list
-
-LIST=
-if [[ x$FCN == x && x$LOOP == x && -f .targetlist ]]
-then
-  LIST="-target-list="`cat .targetlist`
-fi
-
-LIBS="-load $SCAF_LIBS_DIR/libSCAFUtilities.so 
-      -load $LIBERTY_LIBS_DIR/libUtil.so
-      -load $LIBERTY_LIBS_DIR/libLoopProf.so"
-OPTS="-targets "
-
-CMD="$PREFIX opt $LIBS $OPTS $FCN $LOOP $LIST $1"
-
-echo Running: $CMD
-#ulimit -S -v $[100*1024*1024]
-$CMD > /dev/null 2> __targets.txt
-
-declare -a lines
-let i=0
-while IFS=$'\n' read -r line_data; do
-  lines[i]="${line_data}"
-  ((++i))
-done < __targets.txt
-
-let i=0
-while (( i < 2 )); do
-# while (( ${#lines[@]} > i )); do
-  IFS=' ' read -a array <<< ${lines[i++]}
-  if [ ${array[0]} == "-" ]; then
-    drive $1 ${array[1]} ${array[3]}
-  fi
-done
 
 #rm -f __targets.txt
