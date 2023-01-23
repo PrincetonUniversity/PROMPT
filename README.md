@@ -1,5 +1,34 @@
 ## PROMPT: A Fast and Extensible Memory Profiling Framework
 
+### Build
+- Required software: NOELLE, SCAF (by default turned on in NOELLE)
+
+```
+cd PROMPT
+export SCAF_INSTALL_DIR=${the directory where SCAF's include and lib are installed (could be the same as NOELLE_INSTALL_DIR)}
+export NOELLE_INSTALL_DIR=${the directory where NOELLE's include and lib are installed}
+export PATH=${llvm install bin directory}:$PATH
+mkdir build
+cd build
+cmake ../src -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=1  -DCMAKE_INSTALL_PREFIX=`pwd`/../install
+make -j8
+make install
+```
+
+### Run
+
+Export the `SLAMP_HOOKS`, `CONSUMER_BINARY`, `SLAMP_LIB_PATH`, and optionally `PROFILEARGS`, and run `slamp-driver` with (1) the bitcode file name, (2) function name, and (3) basic block name.
+
+Example:
+`SLAMP_HOOKS=~/PROMPT/install/runtime/libslamp_hooks_custom.a CONSUMER_BINARY=~/PROMPT/install/bin/consumer_custom SLAMP_LIB_PATH=~/PROMPT/install/lib/libSLAMP.so PROFILEARGS="aminos 391519156 1000"  ~/PROMPT/scripts/slamp-driver benchmark.plain.bc md for.cond219`
+
+
+#### Preprocessing
+
+- Single LLVM bitcode file
+- Metadata ID for functions, basic blocks, and instructions
+
+
 ### TODOs
 
 #### Decoupling
@@ -35,10 +64,6 @@
 - [ ] Get started doc
 - [ ] Extending with new profiler doc
 
-### Preprocessing
-
-- Single LLVM bitcode file (is it required?)
-- Metadata ID for functions, basic blocks, and instructions
 
 ### Modules
 
