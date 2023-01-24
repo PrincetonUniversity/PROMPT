@@ -22,12 +22,10 @@ Export the `SLAMP_HOOKS`, `CONSUMER_BINARY`, `SLAMP_LIB_PATH`, and optionally `P
 Example:
 `SLAMP_HOOKS=~/PROMPT/install/runtime/libslamp_hooks_custom.a CONSUMER_BINARY=~/PROMPT/install/bin/consumer_custom SLAMP_LIB_PATH=~/PROMPT/install/lib/libSLAMP.so PROFILEARGS="aminos 391519156 1000"  ~/PROMPT/scripts/slamp-driver benchmark.plain.bc md for.cond219`
 
-
 #### Preprocessing
 
 - Single LLVM bitcode file
-- Metadata ID for functions, basic blocks, and instructions
-
+- Metadata ID for functions, basic blocks, and instructions (as a part of `slamp-driver`)
 
 ### TODOs
 
@@ -63,7 +61,6 @@ Example:
 - [ ] Simple demo
 - [ ] Get started doc
 - [ ] Extending with new profiler doc
-
 
 ### Modules
 

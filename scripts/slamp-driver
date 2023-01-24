@@ -1,17 +1,30 @@
 #!/bin/bash
 
-# SLAMP_HOOKS="$LIBERTY_LIBS_DIR/libslamp_hooks_stats.a"
-# SLAMP_HOOKS="/u/NAS_SCRATCH/ziyangx/cpf-workspace-9-master/build/cpf-build-release/lib/SLAMP/SLAMPsmtxq/libslamp_hooks_smtx.a"
-
 # if environment variable is not set, use default
 if [ -z "$SLAMP_HOOKS" ]; then
-    SLAMP_HOOKS="/u/NAS_SCRATCH/ziyangx/cpf-workspace-9-master/build/cpf-build-release/lib/SLAMP/SLAMPsmtxq/libslamp_hooks_smtx.a"
+# if "SLAMP_INSTALL_DIR" is set
+    if [ -n "$SLAMP_INSTALL_DIR" ]; then
+        SLAMP_HOOKS="$SLAMP_INSTALL_DIR/runtime/libslamp_hooks_custom.a"
+    else
+        echo "SLAMP_INSTALL_DIR is not set"
+        exit 1
+    fi
 fi
 if [ -z "$CONSUMER_BINARY" ]; then
-    CONSUMER_BINARY="/u/NAS_SCRATCH/ziyangx/cpf-workspace-9-master/cpf/liberty/lib/SLAMP/SLAMPcustom/consumer/build/consumer"
+    if [ -n "$SLAMP_INSTALL_DIR" ]; then
+        CONSUMER_BINARY="$SLAMP_INSTALL_DIR/bin/consumer_custom"
+    else
+        echo "SLAMP_INSTALL_DIR is not set"
+        exit 1
+    fi
 fi
 if [ -z "$SLAMP_LIB_PATH" ]; then
-    SLAMP_LIB_PATH="$LIBERTY_LIBS_DIR/libSLAMP.so"
+    if [ -n "$SLAMP_INSTALL_DIR" ]; then
+        SLAMP_LIB_PATH="$SLAMP_INSTALL_DIR/lib/libSLAMP.so"
+    else
+        echo "SLAMP_INSTALL_DIR is not set"
+        exit 1
+    fi
 fi
 
 # EXTRA="-basicaa -globals-aa -cfl-steens-aa -tbaa -scev-aa -cfl-anders-aa -objc-arc-aa -scoped-noalias -veto -nander"
@@ -51,7 +64,6 @@ function drive {
   # $1: .bc file
   # $2: target fcn
   # $3: target loop
-
 
   local SLAMP_OUTFILE="$2-$3.result.slamp.profile"
   local OPTS="-slamp-insts -slamp-target-fn=$2 -slamp-target-loop=$3 $EXTRA_FLAGS -slamp-outfile=$SLAMP_OUTFILE"
