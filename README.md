@@ -31,9 +31,10 @@ Example:
 
 #### Decoupling
 - [x] Compile with NOELLE and SCAF
-- [ ] Compile with NOELLE and optional SCAF
+- [x] Compile with NOELLE and SCAF (without Speculation Modules)
 - [x] Seperate all profiling modules out
 - [ ] Convert producer library to be configurable
+- [ ] Make LTO optional
 
 #### Implementation
 - [ ] Multithreaded profiling?
@@ -50,7 +51,7 @@ Example:
 - [ ] Replace SpecPriv profiler and LAMP with PROMPT
     - Check the problem with the failed and long-running benchmarks
 
-#### Debug & Testing 
+#### Debug & Testing
 - [ ] Check the slowdown problem with multiple backend running together
 - [ ] Check the slowdown problem when multiple containers running together
 - [ ] Test with newer version of LLVM
