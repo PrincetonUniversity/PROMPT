@@ -35,6 +35,25 @@ export SLAMP_INSTALL_DIR=~/PROMPT/install/
 ~/PROMPT/scripts/slamp-driver benchmark.plain.bc md for.cond219
 ```
 
+#### Make Sense of the Output
+
+The default output is at result.slamp.profile.
+
+When used as a memory dependence profiler, PROMPT generates a output file where each dependence consists of six numbers, following this format:
+```
+[loop id, source id, bare destination id, destination id, is loop carried, count]
+```
+
+where:
+
+- loop id: the basic block metadata id of the loop
+- source id: the instruction id of the source instruction (have to be an instruction in the loop, can be a function call)
+- bare destination id: the instruction id where store happens (can be outside of the loop, not a function call)
+- destination id: the instruction id of the source instruction (have to be an instruction in the loop, can be a function call)
+- is loop carried: 0 for intra-iteration; 1 for loop-carried
+- count: always 1 if counting is turned off, otherwise the dynamic count of the dependence
+
+Note that the first dependence of a loop is always `[loop id, 0, 0, 0, 0, 0]`, showing that a loop has been profiled.
 
 ### TODOs
 
