@@ -218,6 +218,8 @@ enum DepModAction: char
     FUNC_EXIT,
 };
 
+static volatile char* lc_dummy = NULL;
+
 void SLAMP_init(uint32_t fn_id, uint32_t loop_id) {
   uint32_t pid = getpid();
 
@@ -284,18 +286,8 @@ void SLAMP_init(uint32_t fn_id, uint32_t loop_id) {
   allocateLibcReqs((void*)&stderr, sizeof(stderr));
   allocateLibcReqs((void*)&sys_nerr, sizeof(sys_nerr));
 
-  // const unsigned short int* ctype_ptr = (*__ctype_b_loc()) - 128;
-  // allocateLibcReqs((void*)ctype_ptr, 384 * sizeof(*ctype_ptr));
-  // const int32_t* itype_ptr = (*__ctype_tolower_loc()) - 128;
-  // allocateLibcReqs((void*)itype_ptr, 384 * sizeof(*itype_ptr));
-  // itype_ptr = (*__ctype_toupper_loc()) - 128;
-  // allocateLibcReqs((void*)itype_ptr, 384 * sizeof(*itype_ptr));
-
   // // FIXME: a dirty way to get xalancbmk to work
-  // auto locale = localeconv();
-  // auto decimal = locale->decimal_point;
-  // allocateLibcReqs((void*)locale, sizeof(*locale));
-  // allocateLibcReqs((void*)decimal, sizeof(*decimal));
+  lc_dummy = setlocale(LC_ALL, "");
 
   old_malloc_hook = __malloc_hook;
   // old_free_hook = __free_hook;
@@ -308,7 +300,7 @@ void SLAMP_init(uint32_t fn_id, uint32_t loop_id) {
   __memalign_hook = SLAMP_memalign_hook;
 
   // flush
-  // produce_wait();
+  produce_wait();
 }
 
 void SLAMP_fini(const char* filename){

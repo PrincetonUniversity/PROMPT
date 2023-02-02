@@ -188,6 +188,8 @@ enum LoadeValueModAction: char
     FINISHED
 };
 
+static volatile char* lc_dummy = NULL;
+
 void SLAMP_init(uint32_t fn_id, uint32_t loop_id) {
 
   // get QUEUE ID from env
@@ -243,6 +245,7 @@ void SLAMP_init(uint32_t fn_id, uint32_t loop_id) {
   printf("SLAMP_init: %d, %d, %d\n", fn_id, loop_id, pid);
   // local_buffer->push(pid);
   produce_32_32_32(INIT, loop_id, pid);
+  lc_dummy = setlocale(LC_ALL, "");
 
   // auto allocateLibcReqs = [](void *addr, size_t size) {
   //   produce_32_32_64(ALLOC, size, (uint64_t)addr);
