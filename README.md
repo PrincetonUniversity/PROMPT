@@ -15,17 +15,26 @@ make -j8
 make install
 ```
 
-### Run
-
-Export the `SLAMP_HOOKS`, `CONSUMER_BINARY`, `SLAMP_LIB_PATH`, and optionally `PROFILEARGS`, and run `slamp-driver` with (1) the bitcode file name, (2) function name, and (3) basic block name.
-
-Example:
-`SLAMP_HOOKS=~/PROMPT/install/runtime/libslamp_hooks_custom.a CONSUMER_BINARY=~/PROMPT/install/bin/consumer_custom SLAMP_LIB_PATH=~/PROMPT/install/lib/libSLAMP.so PROFILEARGS="aminos 391519156 1000"  ~/PROMPT/scripts/slamp-driver benchmark.plain.bc md for.cond219`
+### Use PROMPT
 
 #### Preprocessing
 
-- Single LLVM bitcode file
-- Metadata ID for functions, basic blocks, and instructions (as a part of `slamp-driver`)
+1. Generate a single LLVM bitcode file
+2. (No need to do it manually if specifying a pair of function and basic block in `slamp-driver`) Annoteate Metadata ID for functions, basic blocks, and instructions with `-metadata-namer` pass
+3. (optional) Run loop profile to generate `loopProf.out`
+
+#### Run PROMPT
+
+1. Export the `SLAMP_INSTALL_DIR`, and optionally `PROFILEARGS`
+2. Run `slamp-driver` with one or three command line arguments, (1) the bitcode file name, and optionally (2) function name, and (3) basic block name. When only providing one argument, `slamp-driver` will look for loop profile output `loopProf.out` and use it to get all hot loops to profile.
+
+Example:
+```bash
+export SLAMP_INSTALL_DIR=~/PROMPT/install/
+# Or ~/PROMPT/scripts/slamp-driver benchmark.bc if there is proper loop profile
+~/PROMPT/scripts/slamp-driver benchmark.plain.bc md for.cond219
+```
+
 
 ### TODOs
 

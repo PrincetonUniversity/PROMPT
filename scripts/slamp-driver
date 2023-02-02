@@ -29,33 +29,33 @@ fi
 
 # EXTRA="-basicaa -globals-aa -cfl-steens-aa -tbaa -scev-aa -cfl-anders-aa -objc-arc-aa -scoped-noalias -veto -nander"
 EXTRA="-basicaa -globals-aa -cfl-steens-aa -tbaa -scev-aa -objc-arc-aa -scoped-noalias -veto -nander"
-# -load $SCAF_LIBS_DIR/libSpeculationModules.so 
+# -load $SCAF_LIBS_DIR/libSpeculationModules.so
 SLAMP_LIBS="
- -load $NOELLE_LIBS_DIR/CallGraph.so 
- -load $NOELLE_LIBS_DIR/libSvf.so 
- -load $NOELLE_LIBS_DIR/libCudd.so -stat=false  
+ -load $NOELLE_LIBS_DIR/CallGraph.so
+ -load $NOELLE_LIBS_DIR/libSvf.so
+ -load $NOELLE_LIBS_DIR/libCudd.so -stat=false
  -load $SCAF_LIBS_DIR/libSCAFUtilities.so
  -load $SCAF_LIBS_DIR/libMemoryAnalysisModules.so
  -load $SCAF_LIBS_DIR/libLoopProf.so
  -load $SCAF_LIBS_DIR/libLAMPLoad.so
  -load $NOELLE_LIBS_DIR/AllocAA.so
- -load $NOELLE_LIBS_DIR/TalkDown.so 
- -load $NOELLE_LIBS_DIR/CallGraph.so 
- -load $NOELLE_LIBS_DIR/PDGAnalysis.so 
- -load $NOELLE_LIBS_DIR/Architecture.so 
- -load $NOELLE_LIBS_DIR/BasicUtilities.so 
- -load $NOELLE_LIBS_DIR/Task.so 
- -load $NOELLE_LIBS_DIR/DataFlow.so 
- -load $NOELLE_LIBS_DIR/HotProfiler.so 
- -load $NOELLE_LIBS_DIR/LoopStructure.so 
- -load $NOELLE_LIBS_DIR/Invariants.so 
- -load $NOELLE_LIBS_DIR/InductionVariables.so 
- -load $NOELLE_LIBS_DIR/Loops.so 
- -load $NOELLE_LIBS_DIR/Scheduler.so 
- -load $NOELLE_LIBS_DIR/OutlinerPass.so 
- -load $NOELLE_LIBS_DIR/MetadataManager.so 
- -load $NOELLE_LIBS_DIR/LoopTransformer.so 
- -load $NOELLE_LIBS_DIR/Noelle.so 
+ -load $NOELLE_LIBS_DIR/TalkDown.so
+ -load $NOELLE_LIBS_DIR/CallGraph.so
+ -load $NOELLE_LIBS_DIR/PDGAnalysis.so
+ -load $NOELLE_LIBS_DIR/Architecture.so
+ -load $NOELLE_LIBS_DIR/BasicUtilities.so
+ -load $NOELLE_LIBS_DIR/Task.so
+ -load $NOELLE_LIBS_DIR/DataFlow.so
+ -load $NOELLE_LIBS_DIR/HotProfiler.so
+ -load $NOELLE_LIBS_DIR/LoopStructure.so
+ -load $NOELLE_LIBS_DIR/Invariants.so
+ -load $NOELLE_LIBS_DIR/InductionVariables.so
+ -load $NOELLE_LIBS_DIR/Loops.so
+ -load $NOELLE_LIBS_DIR/Scheduler.so
+ -load $NOELLE_LIBS_DIR/OutlinerPass.so
+ -load $NOELLE_LIBS_DIR/MetadataManager.so
+ -load $NOELLE_LIBS_DIR/LoopTransformer.so
+ -load $NOELLE_LIBS_DIR/Noelle.so
  -load $SLAMP_LIB_PATH
  -basic-loop-aa -scev-loop-aa -auto-restrict-aa -intrinsic-aa -global-malloc-aa -pure-fun-aa -semi-local-fun-aa -phi-maze-aa -no-capture-global-aa -no-capture-src-aa -type-aa -no-escape-fields-aa -acyclic-aa -disjoint-fields-aa -field-malloc-aa -loop-variant-allocation-aa -std-in-out-err-aa -array-of-structures-aa -kill-flow-aa -callsite-depth-combinator-aa -unique-access-paths-aa $EXTRA -llvm-aa-results "
  #  -pdgbuilder
@@ -67,7 +67,7 @@ function drive {
 
   local SLAMP_OUTFILE="$2-$3.result.slamp.profile"
   local OPTS="-slamp-insts -slamp-target-fn=$2 -slamp-target-loop=$3 $EXTRA_FLAGS -slamp-outfile=$SLAMP_OUTFILE"
-  
+
   local PRELINK_BC="`basename $1 .bc`.slamp.prelink.bc"
   local PRELINK_OBJ="`basename $1 .bc`.slamp.prelink.o"
   # if EXE is in environment variable, use it
@@ -82,7 +82,7 @@ function drive {
   if [[ x$DEBUG != x ]]; then
     OPTS+=" -debug-only=$DEBUG"
   fi
-  
+
   local CMD1="opt $SLAMP_LIBS $OPTS -o $PRELINK_BC $1"
   local CMD2="clang -c -o $PRELINK_OBJ $PRELINK_BC -flto"
   local CMD3="clang++ -no-pie  -O2 $PRELINK_OBJ $SLAMP_HOOKS -o $EXE -g $LINKING_OPTS -lunwind $DEFAULT_LIBS -ldl -lutil  -lpthread -lrt -flto"
@@ -164,7 +164,7 @@ if [[ x$2 != x && x$3 != x ]]; then
     opt $1 -o $NAMED_BC $SLAMP_LIBS -metadata-namer
     drive $NAMED_BC $2 $3
 else
-    # otherwise, use loop profile and run all different loops 
+    # otherwise, use loop profile and run all different loops
     # Determine if the user specified a function
     FCN=
     if [[ x$2 != x ]]
@@ -179,7 +179,7 @@ else
       LOOP="-target-loop=$3"
     fi
 
-    LIBS="-load $SCAF_LIBS_DIR/libSCAFUtilities.so 
+    LIBS="-load $SCAF_LIBS_DIR/libSCAFUtilities.so
           -load $LIBERTY_LIBS_DIR/libUtil.so
           -load $LIBERTY_LIBS_DIR/libLoopProf.so"
     OPTS="-targets "
