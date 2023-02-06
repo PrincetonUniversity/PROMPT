@@ -4,6 +4,59 @@
 #include "sw_queue_astream.h"
 
 /*
+ * Produce a value to a queue.
+ */
+// Inline void sq_produce(SW_Queue q, uint64_t value,
+void sq_produce(SW_Queue q, uint64_t value,
+                       sq_callback cb, sq_cbData cbd) // attribute: noinline
+__attribute__((noinline))
+
+{
+#ifdef INSTRUMENT
+  q->total_produces++;
+#endif
+
+  uint64_t pDataRaw = q->p_data;
+  uint32_t pInx = sq_pInx(q);
+  uint64_t *pData = (uint64_t *) (size_t) (uint32_t) q->p_data;
+  uint64_t *ptr = pInx + pData;
+
+  sq_write(ptr, value);
+  q->p_data = (pDataRaw + (1ULL << 32)) & HIGH_QMASK;
+
+  if(!(q->p_data & HIGH_CHUNKMASK)) {
+    sq_waitConsumer(q, cb, cbd);
+  }
+}
+
+
+/*
+ * Produce two values to a queue. Do not intermingle with sq_produce.
+ */
+// Inline void sq_produce2(SW_Queue q, uint64_t a, uint64_t b,
+void sq_produce2(SW_Queue q, uint64_t a, uint64_t b,
+                        sq_callback cb, sq_cbData cbd)
+{
+#ifdef INSTRUMENT
+  q->total_produces += 2;
+#endif
+
+  /* Otherwise, gcc couldn't constant propagate. */
+  uint64_t pDataRaw = q->p_data;
+  uint32_t pInx = sq_pInx(q);
+  uint64_t *pData = (uint64_t *) (size_t) (uint32_t) q->p_data;
+  uint64_t *ptr = pInx + pData;
+
+  sq_write(ptr + 0, a);
+  sq_write(ptr + 1, b);
+
+  q->p_data = (pDataRaw + (2ULL << 32)) & HIGH_QMASK;
+
+  if(!(q->p_data & HIGH_CHUNKMASK)) {
+    sq_waitConsumer(q, cb, cbd);
+  }
+}
+/*
  * Create and initialize a queue.
  */
 SW_Queue sq_createQueue(void)

@@ -26,6 +26,8 @@ bip::fixed_managed_shared_memory *segment;
 bip::fixed_managed_shared_memory *segment2;
 static SW_Queue the_queue;
 
+#define sq_produce(Q,V) sq_produce(Q, V, (sq_callback) sq_flushQueue, Q)
+#define sq_produce2(Q,A,B) sq_produce2(Q, A, B, (sq_callback) sq_flushQueue, Q)
 #define CONSUME         sq_consume(the_queue);
 #define PRODUCE(x)      sq_produce(the_queue,(uint64_t)x);
 
