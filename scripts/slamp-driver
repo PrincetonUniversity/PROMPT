@@ -84,10 +84,14 @@ function drive {
   fi
 
   local CMD1="opt $SLAMP_LIBS $OPTS -o $PRELINK_BC $1"
-  local CMD2="clang -c -o $PRELINK_OBJ $PRELINK_BC -flto"
-  local CMD3="clang++ -no-pie  -O2 $PRELINK_OBJ $SLAMP_HOOKS -o $EXE -g $LINKING_OPTS -lunwind $DEFAULT_LIBS -ldl -lutil  -lpthread -lrt -flto"
-
+  local CMD2="clang -c -o $PRELINK_OBJ $PRELINK_BC"
+  local CMD3="clang++ -no-pie  -O2 $PRELINK_OBJ $SLAMP_HOOKS -o $EXE -g $LINKING_OPTS -lunwind $DEFAULT_LIBS -ldl -lutil  -lpthread -lrt"
   local CMD4="stdbuf -o0 -e0 ./$EXE $PROFILEARGS"
+  # if RUNTIME_LTO == "ON" then add -flto to CMD2 and CMD3
+  if [[ x$RUNTIME_LTO == xON ]]; then
+      CMD2+=" -flto"
+      CMD3+=" -flto"
+  fi
 
   red='\e[0;31m'
   nc='\e[0m'
@@ -164,6 +168,13 @@ if [[ x$2 != x && x$3 != x ]]; then
     opt $1 -o $NAMED_BC $SLAMP_LIBS -metadata-namer
     drive $NAMED_BC $2 $3
 else
+    # Check if both $SCAF_LIBS_DIR and $LIBERTY_LIBS_DIR are set
+    # if any of them is not set, exit with error
+    if [[ x$SCAF_LIBS_DIR == x || x$LIBERTY_LIBS_DIR == x ]]; then
+        echo "SCAF_LIBS_DIR and LIBERTY_LIBS_DIR must be set to use loo profile"
+        exit 1
+    fi
+
     # otherwise, use loop profile and run all different loops
     # Determine if the user specified a function
     FCN=

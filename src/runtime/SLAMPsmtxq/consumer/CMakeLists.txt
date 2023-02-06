@@ -7,15 +7,18 @@ set(CMAKE_LINKER "ld.gold")
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto -Ofast")
-set(LINK_FLAGS "${LINK_FLAGS} -flto -O3")
+# if RUNTIME_LTO is set, enable LTO
+if (RUNTIME_LTO)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto")
+    set(LINK_FLAGS "${LINK_FLAGS} -flto")
+endif()
 
 find_package(Boost REQUIRED COMPONENTS system)
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(./ ../ ../../)
 
 add_executable (consumer_smtx consumer.cpp ../sw_queue.c)
-target_link_libraries(consumer_smtx LINK_PUBLIC 
+target_link_libraries(consumer_smtx LINK_PUBLIC
 	${Boost_LIBRARIES}
     ProfilingModules
 	rt

@@ -3,7 +3,7 @@ file(GLOB SRCS
     "*.c"
 )
 
-# add CMAKE_PREFIX_PATH 
+# add CMAKE_PREFIX_PATH
 set(CMAKE_C_COMPILER "clang")
 set(CMAKE_CXX_COMPILER "clang++")
 
@@ -11,7 +11,11 @@ set(CMAKE_CXX_COMPILER "clang++")
 # set_source_files_properties(${SRCS} PROPERTIES COMPILE_FLAGS "-Wl,-save-temps -std=c++17 -Wno-inline -O3 -fexceptions")# -emit-llvm")
 # set C++ flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
-set_source_files_properties(${SRCS} PROPERTIES COMPILE_FLAGS "-flto -Wno-inline -O3 -fexceptions")# -emit-llvm")
+set_source_files_properties(${SRCS} PROPERTIES COMPILE_FLAGS "-Wno-inline -O3 -fexceptions")# -emit-llvm")
+# if RUNTIME_LTO is set, add LTO flags
+if(RUNTIME_LTO)
+    set_source_files_properties(${SRCS} PROPERTIES COMPILE_FLAGS "-flto")
+endif()
 set(PassName "slamp_hooks_smtx")
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
