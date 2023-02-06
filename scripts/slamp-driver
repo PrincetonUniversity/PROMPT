@@ -116,14 +116,18 @@ function drive {
       slamp_queue_id=$(($RANDOM%1000))
   done
 
-  # # taskset --cpu-list 0-6,9-55 /u/NAS_SCRATCH/ziyangx/cpf-workspace-9-master/cpf/liberty/lib/SLAMP/SLAMPcustom/consumer/build/consumer &
-  # /u/NAS_SCRATCH/ziyangx/cpf-workspace-9-master/cpf/liberty/lib/SLAMP/SLAMPsmtxq/consumer/build/consumer &
   echo "SLAMP_QUEUE_ID=$slamp_queue_id /usr/bin/time -v $CONSUMER_BINARY &"
   SLAMP_QUEUE_ID=$slamp_queue_id /usr/bin/time -v $CONSUMER_BINARY &
   CONSUME_PID=$!
-  RUN_TIMEOUT=7200 # 2 hours
   echo "timeout $RUN_TIMEOUT SLAMP_QUEUE_ID=$slamp_queue_id $CMD4"
-  SLAMP_QUEUE_ID=$slamp_queue_id eval /usr/bin/time -v regressions-watchdog $RUN_TIMEOUT slamp-custom.time $CMD4
+  # if regression-watchdog is an executable, use it
+  if [[ -x regression-watchdog ]]; then
+      RUN_TIMEOUT=7200 # 2 hours
+      SLAMP_QUEUE_ID=$slamp_queue_id eval /usr/bin/time -v regressions-watchdog $RUN_TIMEOUT slamp.time $CMD4
+  else
+      SLAMP_QUEUE_ID=$slamp_queue_id eval /usr/bin/time -v $CMD4
+  fi
+
   # eval regressions-watchdog $RUN_TIMEOUT slamp-smtx.time $CMD4
   # if command fail
   if [ $? -ne 0 ]; then
@@ -160,6 +164,10 @@ function drive {
 # $1 is the bc file
 # $2 is the function name
 # $3 is the loop id
+if [[ x$1 == x ]]; then
+  echo "Usage: $0 <bc file> [<function name> <loop id>]"
+  exit 1
+fi
 
 # if $2 and $3 are set, run driver on $1 $2 $3
 if [[ x$2 != x && x$3 != x ]]; then
@@ -171,7 +179,7 @@ else
     # Check if both $SCAF_LIBS_DIR and $LIBERTY_LIBS_DIR are set
     # if any of them is not set, exit with error
     if [[ x$SCAF_LIBS_DIR == x || x$LIBERTY_LIBS_DIR == x ]]; then
-        echo "SCAF_LIBS_DIR and LIBERTY_LIBS_DIR must be set to use loo profile"
+        echo "SCAF_LIBS_DIR and LIBERTY_LIBS_DIR must be set to use loop profile"
         exit 1
     fi
 
