@@ -8,12 +8,11 @@ cd PROMPT
 export SCAF_INSTALL_DIR=${the directory where SCAF's include and lib are installed (could be the same as NOELLE_INSTALL_DIR)}
 export NOELLE_INSTALL_DIR=${the directory where NOELLE's include and lib are installed}
 export PATH=${llvm install bin directory}:$PATH
-mkdir build
-cd build
-cmake ../src -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=1  -DCMAKE_INSTALL_PREFIX=`pwd`/../install
-make -j8
-make install
+make build # By default install to PROMPT/build
+make install # By default install to PROMPT/install
 ```
+
+The .rc file is generated in PROMPT/install
 
 ### Use PROMPT
 
@@ -25,14 +24,15 @@ make install
 
 #### Run PROMPT
 
-1. Export the `SLAMP_INSTALL_DIR`, and optionally `PROFILEARGS`
-2. Run `slamp-driver` with one or three command line arguments, (1) the bitcode file name, and optionally (2) function name, and (3) basic block name. When only providing one argument, `slamp-driver` will look for loop profile output `loopProf.out` and use it to get all hot loops to profile.
+1. Source PROMPT.rc generated in the install directory
+2. If the program requires command line arguments, export `PROFILEARGS`
+3. Run `slamp-driver` with one or three command line arguments, (1) the bitcode file name, and optionally (2) function name, and (3) basic block name. When only providing one argument, `slamp-driver` will look for loop profile output `loopProf.out` and use it to get all hot loops to profile.
 
 Example:
 ```bash
-export SLAMP_INSTALL_DIR=~/PROMPT/install/
+source PROMPT/install/PROMPT.rc
 # Or ~/PROMPT/scripts/slamp-driver benchmark.bc if there is proper loop profile
-~/PROMPT/scripts/slamp-driver benchmark.plain.bc md for.cond219
+PROFILEARGS="aminos 1234 123" slamp-driver benchmark.plain.bc md for.cond219
 ```
 
 #### Make Sense of the Output
@@ -61,8 +61,8 @@ Note that the first dependence of a loop is always `[loop id, 0, 0, 0, 0, 0]`, s
 - [x] Compile with NOELLE and SCAF
 - [x] Compile with NOELLE and SCAF (without Speculation Modules)
 - [x] Seperate all profiling modules out
+- [x] Make LTO optional
 - [ ] Convert producer library to be configurable
-- [ ] Make LTO optional
 
 #### Implementation
 - [ ] Multithreaded profiling?
