@@ -4,7 +4,7 @@ BUILD_DIR?=${CURRENT_DIR}/build
 BUILD_TYPE?=Release
 INSTALL_DIR?=${CURRENT_DIR}/install
 # ON or OFF
-RUNTIME_LTO?=OFF
+RUNTIME_LTO?=ON
 ifndef NOELLE_INSTALL_DIR
 	$(error NOELLE_INSTALL_DIR is not set)
 endif
