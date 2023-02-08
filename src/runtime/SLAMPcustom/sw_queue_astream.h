@@ -8,8 +8,7 @@
 #include <iostream>
 #define DUALCORE
 
-#include <stdbool.h>
-#include <stdint.h>
+#include <cstdint>
 #include <sys/mman.h>
 #include <xmmintrin.h>
 #include <smmintrin.h>
@@ -17,6 +16,9 @@
 #include <mutex>
 #include <condition_variable>
 #include <thread>
+
+#define ATTRIBUTE(x) __attribute__((x))
+#define ATTRIBUTE(x) 
 
 #include "inline.h"
 #include "bitcast.h"
@@ -34,6 +36,8 @@
 // #define QSIZE (1 << 23)
 #endif /* QSIZE */
 
+static constexpr uint64_t QSIZE_GUARD = QSIZE - 60;
+
 #ifndef QPREFETCH
 #define QPREFETCH (1 << 7)
 #endif /* QPREFETCH */
@@ -48,7 +52,7 @@ struct UnderlyingQueue {
   uint64_t size;
   PAD(3, sizeof(uint64_t));
   uint32_t *data;
-  
+
   void init(uint32_t *data){
     this->ready_to_read = false;
     this->ready_to_write = true;
@@ -73,7 +77,7 @@ struct DoubleQueue {
   // uint32_t packet[4];
   __m128i packet;
 
-  DoubleQueue(Queue_p dqA, Queue_p dqB, bool isConsumer, unsigned &threads, 
+  DoubleQueue(Queue_p dqA, Queue_p dqB, bool isConsumer, unsigned &threads,
       std::mutex &m, std::condition_variable &cv)
       : qA(dqA), qB(dqB), m(m), cv(cv), running_threads(threads), ALL_THREADS(threads) {
     this->qA = dqA;
@@ -166,7 +170,7 @@ struct DoubleQueue {
     uint32_t v = _mm_extract_epi32(packet, 0);
     // get the least significant 8 bits
     return v & 0xFF;
-    
+
     // return packet[0];
   }
 
@@ -202,54 +206,146 @@ struct DoubleQueue {
     c = _mm_extract_epi64(packet, 1);
   }
 
-  // uint32_t consume32() {
-  //   uint32_t ret = data[index];
-  //   index++;
-  //   // _mm_prefetch(&dq_data[dq_index] + QPREFETCH, _MM_HINT_NTA);
-  //   return ret;
-  // }
+};
 
-  // uint64_t consume64() {
-  //   uint64_t ret = *(uint64_t *) &data[index];
-  //   index += 2;
-  //   return ret;
-  // }
+struct DoubleQueue_Producer {
+  Queue_p qA, qB, qNow, qOther;
+  uint64_t index = 0;
+  uint64_t size = 0;
+  uint32_t *data;
 
-  // void consume_64_64(uint64_t &x, uint64_t &y) {
-  //   uint64_t *ptr = (uint64_t *) &data[index];
-  //   x = ptr[0];
-  //   y = ptr[1];
-  //   index += 4;
-  //   // _mm_prefetch(&dq_data[dq_index] + QPREFETCH, _MM_HINT_T0);
-  //   // _mm_prefetch(&dq_data[dq_index] + QPREFETCH, _MM_HINT_NTA);
-  // }
+  // uint32_t packet[4];
+  __m128i packet;
 
-  // void consume_32_32(uint32_t &x, uint32_t &y) {
-  //   uint32_t *ptr = &data[index];
-  //   x = ptr[0];
-  //   y = ptr[1];
-  //   index += 2;
-  //   // _mm_prefetch(&dq_data[dq_index] + QPREFETCH, _MM_HINT_T0);
-  //   // _mm_prefetch(&dq_data[dq_index] + QPREFETCH, _MM_HINT_NTA);
-  // }
+  DoubleQueue_Producer(Queue_p dqA, Queue_p dqB)
+      : qA(dqA), qB(dqB) {
+    this->qA = dqA;
+    this->qB = dqB;
 
-  // void consume_32_64(uint32_t &x, uint64_t &y) {
-  //   uint32_t *ptr = &data[index];
-  //   x = ptr[0];
-  //   y = *(uint64_t *) &ptr[1];
-  //   index += 3;
-  //   // _mm_prefetch(&dq_data[dq_index] + QPREFETCH, _MM_HINT_T0);
-  //   // _mm_prefetch(&dq_data[dq_index] + QPREFETCH, _MM_HINT_NTA);
-  // }
+    // Producer
+    this->qNow = dqA;
+    this->qOther = dqB;
 
-  // void consume_32_32_64(uint32_t &x, uint32_t &y, uint64_t &z) {
-  //   uint32_t *ptr = &data[index];
-  //   x = ptr[0];
-  //   y = ptr[1];
-  //   z = *(uint64_t *) &ptr[2];
-  //   index += 4;
-  //   // _mm_prefetch(&dq_data[dq_index] + QPREFETCH, _MM_HINT_T0);
-  //   // _mm_prefetch(&dq_data[dq_index] + QPREFETCH, _MM_HINT_NTA);
-  // }
+    this->data = qNow->data;
+  }
+
+  void swap(){
+    if(qNow == qA){
+      qNow = qB;
+      qOther = qA;
+    }else{
+      qNow = qA;
+      qOther = qB;
+    }
+    data = qNow->data;
+  }
+
+  void flush() {
+    qNow->size = index;
+    qNow->ready_to_read = true;
+    qNow->ready_to_write = false;
+  }
+
+  void produce_wait() ATTRIBUTE(noinline){
+    flush();
+    while (!qOther->ready_to_write){
+      // spin
+      usleep(10);
+    }
+    swap();
+    qNow->ready_to_read = false;
+    index = 0;
+    // total_swapped++;
+  }
+
+  // the packet is always 128bit, pad  with 0
+  void produce_32(uint32_t x) ATTRIBUTE(noinline){
+#ifdef MM_STREAM
+    // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(0, 0, 0, x));
+    _mm_stream_si32((int *) &data[dq_index], x);
+#else
+    data[index] = x;
+    // dq_data[dq_index + 1] = 0;
+    // dq_data[dq_index + 2] = 0;
+    // dq_data[dq_index + 3] = 0;
+#endif
+    index += 4;
+
+    if (index >= QSIZE_GUARD) [[unlikely]] {
+      produce_wait();
+    }
+  }
+
+  void produce_32_32(uint32_t x, uint32_t y) ATTRIBUTE(noinline){
+#ifdef MM_STREAM
+    // _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32(0, 0, y, x));
+    _mm_stream_si32((int *) &data[index], x);
+    _mm_stream_si32((int *) &data[index + 1], y);
+#else
+    data[index] = x;
+    data[index + 1] = y;
+    // data[index + 2] = 0;
+    // data[index + 3] = 0;
+#endif
+    index += 4;
+
+    if (index >= QSIZE_GUARD) [[unlikely]] {
+      produce_wait();
+    }
+  }
+
+  void produce_64_64(const uint64_t x, const uint64_t y) ATTRIBUTE(noinline){
+#ifdef MM_STREAM
+    _mm_stream_si128((__m128i *)(data + index), _mm_set_epi64x(y, x));
+    // _mm_stream_si64((long long *) &data[index], x);
+    // _mm_stream_si64((long long *) &data[index + 2], y);
+#else
+    *((uint64_t *) &data[index]) = x;
+    *((uint64_t *) &data[index + 2]) = y;
+#endif
+    index += 4;
+
+    if (index >= QSIZE_GUARD) [[unlikely]] {
+      produce_wait();
+    }
+  }
+
+  // static void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) {
+  void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) ATTRIBUTE(noinline) {
+#ifdef MM_STREAM
+    // FIXME: set 32bit x, 32bit y, 64bit z, small endian
+    _mm_stream_si32((int *) &data[index], x);
+    _mm_stream_si32((int *) &data[index + 1], y);
+    _mm_stream_si64((long long *) &data[index + 2], z);
+    // _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32( z >> 32, z & 0xFFFFFFFF, y, x));
+#else
+    data[index] = x;
+    data[index+1] = y;
+    *(uint64_t*)&data[index+2] = z;
+#endif
+    index += 4;
+    if (index >= QSIZE_GUARD) [[unlikely]] {
+      produce_wait();
+    }
+  }
+
+  void produce_32_32_32(uint32_t x, uint32_t y, uint32_t z) ATTRIBUTE(noinline) {
+#ifdef MM_STREAM
+    _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32(0, z, y, x));
+
+    // _mm_stream_si32((int *) &data[index], x);
+    // _mm_stream_si32((int *) &data[index+1], y);
+    // _mm_stream_si32((int *) &data[index+2], z);
+#else
+    data[index] = x;
+    data[index+1] = y;
+    data[index+2] = z;
+    data[index+3] = 0;
+#endif
+    index += 4;
+    if (index >= QSIZE_GUARD) [[unlikely]] {
+      produce_wait();
+    }
+  }
 };
 #endif /* SW_QUEUE_H */
