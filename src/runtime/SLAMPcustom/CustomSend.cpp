@@ -91,7 +91,7 @@ void SLAMP_init(uint32_t fn_id, uint32_t loop_id) {
   auto queue_name = std::string("slamp_queue_") + env;
   segment = new bip::fixed_managed_shared_memory(bip::open_or_create, queue_name.c_str(), sizeof(uint32_t) *QSIZE *4, (void*)(1UL << 32));
   // segment2 = new bip::fixed_managed_shared_memory(bip::open_or_create, "MySharedMemory2", sizeof(uint64_t) *QSIZE *2, (void*)(1UL << 28));
-  
+
   Queue_p dqA, dqB;
   dqA = segment->find<Queue>("DQ_A").first;
   dqB = segment->find<Queue>("DQ_B").first;

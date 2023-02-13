@@ -134,8 +134,6 @@ void consume_loop_lv(DoubleQueue &dq, LoadedValueModule &lvMod) ATTRIBUTE(noinli
       // uint32_t bare_instr;
       uint32_t size = 0;
 
-      dq.unpack_32_64(instr, value);
-      lvMod.load(instr, addr, instr, value, size);
 #ifdef UNIFIED_WORKFLOW
       dq.unpack_32_64(instr, addr);
       dq.check();
@@ -830,8 +828,11 @@ int main(int argc, char** argv) {
     std::cout << "SLAMP_QUEUE_ID not set" << std::endl;
     exit(-1);
   }
+
+  // Create the queue in shared memory
   auto queue_name = std::string("slamp_queue_") + env;
 
+  // FIXME: no need to have fixed address for custom queue any more
   segment = new bip::fixed_managed_shared_memory(bip::open_or_create, queue_name.c_str(), sizeof(uint32_t) *QSIZE *4, (void*)(1UL << 32));
   // print the address of the shared memory segment
   std::cout << "Shared memory segment address: " << segment->get_address() << std::endl;
@@ -848,7 +849,6 @@ int main(int argc, char** argv) {
   dataB = (uint32_t*)(((uint64_t)dataB + 15) & ~15);
   dqA->init(dataA);
   dqB->init(dataB);
-
 
   constexpr unsigned MASK = THREAD_COUNT - 1;
 
@@ -971,29 +971,6 @@ int main(int argc, char** argv) {
     olMods[0]->fini("ollog.txt");
   }
 
-
-
-  // for (unsigned i = 0; i < THREADS_DEP; i++) {
-    // if (i != 0) {
-      // depMods[0]->merge_dep(*depMods[i]);
-    // }
-  // }
-  // if (THREADS_DEP > 0) {
-    // depMods[0]->fini("deplog.txt");
-  // }
-
-  // for (unsigned i = 0; i < THREADS_PT; i++) {
-    // if (i != 0) {
-      // ptMods[0]->merge(*ptMods[i]);
-    // }
-  // }
-  // if (THREADS_PT > 0) {
-    // ptMods[0]->fini("ptlog.txt");
-  // }
-  
-  // if (THREADS_OL > 0) {
-    // olMods[0]->fini("ollog.txt");
-  // }
 #else
   if (MODULE == DEPENDENCE_MODULE) {
     DependenceModule *depMods[THREAD_COUNT];
