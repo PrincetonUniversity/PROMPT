@@ -1,16 +1,41 @@
 ---
 events:
   init:
-    fn_name: SLAMP_init
-    return_t: void
-    parameters:
-      func_id: uint32_t  # Function ID
-      loop_id: uint32_t
+    func_id: 32 # Function ID
+    loop_id: 32
   load:
-    fn_name: SLAMP_load
-    return_t: void
-    parameters:
-      instr: uint32_t
-      addr: uint32_t
-      bare_instr: uint32_t
-      value: uint64_t
+    instr: 32
+    addr: 64
+    value: 64
+  store:
+    instr: 32
+    addr:  64
+  alloc:
+    inst_id: 24 # FIXME: this is problematic
+    size: 32
+    ptr: 64
+  free:
+    ptr: 64
+  loop_invoc:
+    # No arg
+  loop_iter:
+    # No arg
+  loop_entry:
+    loop_id: 32
+  loop_exit:
+    loop_id: 32
+  loop_iter_ctx:
+    # loop_id: 32
+  func_entry:
+    function_id: 32
+  func_exit:
+    function_id: 32
+  points_to_inst:
+    inst_id: 32
+    ptr: 64
+  points_to_arg:
+    inst_id: 32
+    ptr: 64
+  finished:
+    # no arg
+...

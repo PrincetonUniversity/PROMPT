@@ -20,20 +20,16 @@ class QueueProtocol:
             return None
 
         # get the event
-        event_object = self.api['events'][event]
-        fn_name = event_object['fn_name']
-        return_t = event_object['return_t']
-        parameters = event_object['parameters']
+        parameters = self.api['events'][event]
 
-        # generate the function line
-        # return_t fn_name(type1 name1, type2 name2, ...)
-        function_line = "%s %s(" % (return_t, fn_name)
-        for p_name, p_type in parameters.items():
-            function_line += "%s %s, " % (p_type, p_name)
+        function_line = "%s (" % event
+        if parameters is not None:
+            for p_name, p_size in parameters.items():
+                function_line += "%s: %s, " % (p_name, p_size)
 
-        # remove the last comma
-        if len(parameters) > 0:
-            function_line = function_line[:-2]
+            # remove the last comma
+            if len(parameters) > 0:
+                function_line = function_line[:-2]
 
         if is_decl:
             function_line += ");"

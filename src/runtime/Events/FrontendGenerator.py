@@ -23,12 +23,25 @@ def importAPI(api_file, api_format="json"):
 
     # api["events"] is a list
     # a list of events with [fn_name, return_t , [parameters]]
-    for name, event in api["events"].items():
-        if "fn_name" not in event or "return_t" not in event or "parameters" not in event:
-            print("Event is missing a field")
+    for name, parameters in api["events"].items():
+        # parameter can be empty
+        if parameters is None:
+            continue
+
         # check that parameters is a dict
-        if not isinstance(event["parameters"], dict):
-            print("Parameters is not a dict")
+        if not isinstance(parameters, dict):
+            print("Parameters for %s is not a dict" % name)
+            return None
+
+        for param_name, param_size in parameters.items():
+            # check that param_size is an int and a multiple of 8
+            if not isinstance(param_size, int):
+                print("Parameter %s for %s is not an int" % (param_name, name))
+                return None
+
+            if param_size % 8 != 0:
+                print("Parameter %s for %s is not a multiple of 8" % (param_name, name))
+                return None
 
     return api
 
