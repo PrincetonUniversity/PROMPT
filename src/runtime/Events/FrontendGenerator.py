@@ -3,9 +3,10 @@
 import json
 import yaml
 import PROMPTQueueProtocol
+from pprint import pprint
 
 # Import the API from a configuration file
-def importAPI(api_file, api_format="json"):
+def importAPI(api_file, api_format="yaml"):
 
     with open(api_file, "r") as f:
         if api_format == "json":
@@ -18,8 +19,7 @@ def importAPI(api_file, api_format="json"):
     # validate the structure
     # check it has "events"
     if "events" not in api:
-        print("No events in API")
-        return None
+        raise Exception("No events in API specification")
 
     # api["events"] is a list
     # a list of events with [fn_name, return_t , [parameters]]
@@ -30,25 +30,53 @@ def importAPI(api_file, api_format="json"):
 
         # check that parameters is a dict
         if not isinstance(parameters, dict):
-            print("Parameters for %s is not a dict" % name)
-            return None
+            raise Exception("Parameters for event %s is not a dict" % name)
 
         for param_name, param_size in parameters.items():
             # check that param_size is an int and a multiple of 8
             if not isinstance(param_size, int):
-                print("Parameter %s for %s is not an int" % (param_name, name))
-                return None
+                raise Exception("Parameter %s for event %s is not an int" % (param_name, name))
 
             if param_size % 8 != 0:
-                print("Parameter %s for %s is not a multiple of 8" % (param_name, name))
-                return None
+                raise Exception("Parameter %s for event %s is not a multiple of 8" % (param_name, name))
 
     return api
+
+def importModuleSpec(api, module_event_file, spec_format="yaml"):
+    with open(module_event_file, "r") as f:
+        if spec_format == "json":
+            mod_events = json.load(f)
+        elif spec_format == "yaml":
+            mod_events = yaml.load(f, Loader=yaml.FullLoader)
+        else:
+            raise Exception("Unknown API format: %s" % spec_format)
+
+    # validate the structure
+    # check it has "events"
+    if "events" not in mod_events:
+        raise Exception("No events in module specification")
+
+    # check that the events are in the API, and that the parameters is a subset
+    for name, parameters in mod_events["events"].items():
+        api_parameters = api["events"][name]
+        # is a subset
+        for p in parameters:
+            if p not in api_parameters:
+                raise Exception("Parameter %s for event %s is not in the API" % (p, name))
+
+    return mod_events
 
 # Import the queue protocol
 
 if __name__ == "__main__":
     api = importAPI("api.yaml", "yaml")
-    print(api)
+    pprint(api)
     queue_protocol = PROMPTQueueProtocol.QueueProtocol(api)
-    queue_protocol.generateAllProducerFunctions(is_decl=True)
+    lines = queue_protocol.generateAllProducerFunctions()
+    print("\n".join(lines))
+
+    mod_spec = importModuleSpec(api, "./DepModEvents.yaml", "yaml")
+    pprint(mod_spec)
+    lines = queue_protocol.generateAllProducerFunctions(mod_spec["events"])
+    print("\n".join(lines))
+

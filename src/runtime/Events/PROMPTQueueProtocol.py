@@ -15,30 +15,44 @@ class QueueProtocol:
         self.api = api
         self.custom_fields = custom_fields
 
-    def generateProducerFunction(self, event, is_decl=False):
+    def generateProducerFunction(self, event, values=None):
         if event not in self.api['events']:
             return None
 
         # get the event
         parameters = self.api['events'][event]
 
-        function_line = "%s (" % event
+        define_str = "#define PRODUCE_%s" % event.upper()
+        function_str = "produce_8"
+        parameter_str = "("
+        args_str = "(" + event.upper()
+
+        # produce_<size>_<size>(<name>, <name>, ...)
         if parameters is not None:
             for p_name, p_size in parameters.items():
-                function_line += "%s: %s, " % (p_name, p_size)
+                parameter_str += "%s, " % p_name
+                if values is not None:
+                    if p_name not in values:
+                        continue
+                function_str += "_%d" % p_size
+                args_str += ", %s" % p_name
+            parameter_str = parameter_str[:-2] # remove the last comma
 
-            # remove the last comma
-            if len(parameters) > 0:
-                function_line = function_line[:-2]
+        parameter_str += ")"
+        args_str += ")"
 
-        if is_decl:
-            function_line += ");"
+        return "%s%s %s%s" % (define_str, parameter_str, function_str, args_str)
 
-        return function_line
-
-    def generateAllProducerFunctions(self, is_decl=False):
-        for event in self.api['events']:
-            print(self.generateProducerFunction(event, is_decl))
+    def generateAllProducerFunctions(self, mod_events=None):
+        lines = []
+        if mod_events is None:
+            for event in self.api['events']:
+                lines.append(self.generateProducerFunction(event))
+        else:
+            for event in mod_events:
+                values = mod_events[event]
+                lines.append(self.generateProducerFunction(event, values))
+        return lines
 
     def generateConsumerLoop(self):
         raise Exception("Not implemented")

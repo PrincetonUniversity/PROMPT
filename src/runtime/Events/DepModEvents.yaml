@@ -1,0 +1,14 @@
+---
+module: DepMod
+description: "Dependence module"
+events:
+  init: [func_id, loop_id]
+  load: [instr, addr]
+  store: [instr, addr]
+  alloc: [size, ptr]
+  loop_invoc: []
+  loop_iter: []
+  func_entry: [function_id]
+  func_exit: [function_id]
+  finished: []
+...
