@@ -1,7 +1,4 @@
 #include "slamp_hooks.h"
-#include <boost/interprocess/creation_tags.hpp>
-#include <boost/interprocess/detail/os_file_functions.hpp>
-#include <boost/interprocess/interprocess_fwd.hpp>
 #include <cstdint>
 #include <cstdio>
 #include <emmintrin.h>
@@ -13,14 +10,13 @@
 #include "sw_queue_astream.h"
 
 #include <boost/interprocess/managed_shared_memory.hpp>
-#include <boost/interprocess/allocators/allocator.hpp>
+namespace bip = boost::interprocess;
 
 #define TRACK_CONTEXT
 
 #define MM_STREAM
 //#define SAMPLING_ITER
 
-namespace bip = boost::interprocess;
 
 // static unsigned long counter_load = 0;
 // static unsigned long counter_store = 0;

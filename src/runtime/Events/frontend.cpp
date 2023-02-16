@@ -1,5 +1,6 @@
 #include "malloc.h"
 #include "slamp_hooks.h"
+#include "slamp_produce.h"
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
@@ -14,6 +15,10 @@ static void *(*old_malloc_hook)(size_t, const void *);
 static void *(*old_realloc_hook)(void *, size_t, const void *);
 static void (*old_free_hook)(void *, const void *);
 static void *(*old_memalign_hook)(size_t, size_t, const void *);
+
+#ifndef PRODUCE_QUEUE_DEFINE
+#define PRODUCE_QUEUE_DEFINE()
+#endif
 
 #ifndef PRODUCE_QUEUE_INIT
 #define PRODUCE_QUEUE_INIT()
@@ -92,6 +97,8 @@ static void *(*old_memalign_hook)(size_t, size_t, const void *);
   __free_hook = old_free_hook;
 
 static volatile char *lc_dummy = NULL;
+
+PRODUCE_QUEUE_DEFINE();
 
 void SLAMP_init(uint32_t fn_id, uint32_t loop_id) {
 

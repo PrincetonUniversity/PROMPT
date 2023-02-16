@@ -1,8 +1,7 @@
 /** ***********************************************/
 /** *** SW Queue with Supporting Variable Size ****/
 /** ***********************************************/
-#ifndef SW_QUEUE_H
-#define SW_QUEUE_H
+#pragma once
 
 #include <cstdint>
 #include <iostream>
@@ -276,6 +275,32 @@ struct DoubleQueue_Producer {
     }
   }
 
+  void produce_8(uint8_t x) ATTRIBUTE(always_inline) {
+    uint32_t tmp = x;
+    produce_32(tmp);
+  }
+
+  void produce_8_24_32_64(uint8_t x, uint32_t y, uint32_t z, uint64_t w)
+      ATTRIBUTE(noinline) {
+    uint32_t xy = (y << 8) | x;
+#ifdef MM_STREAM
+    // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(z, w, y,
+    // x));
+    _mm_stream_si32((int *)&dq_data[dq_index], xy);
+    _mm_stream_si32((int *)&dq_data[dq_index + 1], z);
+    _mm_stream_si64((long long *)&dq_data[dq_index + 2], w);
+#else
+    data[index] = xy;
+    data[index + 1] = z;
+    *((uint64_t *)&data[index + 2]) = w;
+#endif
+    index += 4;
+
+    if (index >= QSIZE_GUARD) [[unlikely]] {
+      produce_wait();
+    }
+  }
+
   void produce_32_32(uint32_t x, uint32_t y) ATTRIBUTE(noinline){
 #ifdef MM_STREAM
     // _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32(0, 0, y, x));
@@ -309,6 +334,22 @@ struct DoubleQueue_Producer {
       produce_wait();
     }
   }
+
+  void produce_8_32(uint8_t x, uint32_t y) ATTRIBUTE(always_inline) {
+    uint32_t x_tmp = x;
+    produce_32_32(x_tmp, y);
+  }
+  void produce_8_32_32(uint8_t x, uint32_t y, uint32_t z) ATTRIBUTE(always_inline) {
+    uint32_t x_tmp = x;
+    produce_32_32(x_tmp, y);
+    produce_32(z);
+  }
+  void produce_8_32_64(uint8_t x, uint32_t y, uint64_t z) ATTRIBUTE(always_inline) {
+    uint32_t x_tmp = x;
+    produce_32_32_64(x_tmp, y, z);
+  }
+
+
 
   // static void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) {
   void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) ATTRIBUTE(noinline) {
@@ -348,4 +389,3 @@ struct DoubleQueue_Producer {
     }
   }
 };
-#endif /* SW_QUEUE_H */

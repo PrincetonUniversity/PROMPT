@@ -72,11 +72,17 @@ if __name__ == "__main__":
     api = importAPI("api.yaml", "yaml")
     pprint(api)
     queue_protocol = PROMPTQueueProtocol.QueueProtocol(api)
-    lines = queue_protocol.generateAllProducerFunctions()
-    print("\n".join(lines))
 
     mod_spec = importModuleSpec(api, "./DepModEvents.yaml", "yaml")
     pprint(mod_spec)
     lines = queue_protocol.generateAllProducerFunctions(mod_spec["events"])
-    print("\n".join(lines))
+
+    # cat custom_produce.h to slamp_produce.h
+    # then cat the lines to slamp_produce.h
+    with open("slamp_produce.h", "w") as f:
+        with open("custom_produce.h", "r") as g:
+            f.write(g.read())
+
+        f.writelines("\n".join(lines))
+
 
