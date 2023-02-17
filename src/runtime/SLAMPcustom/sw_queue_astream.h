@@ -341,8 +341,7 @@ struct DoubleQueue_Producer {
   }
   void produce_8_32_32(uint8_t x, uint32_t y, uint32_t z) ATTRIBUTE(always_inline) {
     uint32_t x_tmp = x;
-    produce_32_32(x_tmp, y);
-    produce_32(z);
+    produce_32_32_32(x_tmp, y, z);
   }
   void produce_8_32_64(uint8_t x, uint32_t y, uint64_t z) ATTRIBUTE(always_inline) {
     uint32_t x_tmp = x;

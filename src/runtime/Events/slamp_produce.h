@@ -40,6 +40,7 @@ enum UnifiedAction : char {
   } while (0)
 
 #define PRODUCE_QUEUE_FLUSH() dq->flush();
+#define PRODUCE_QUEUE_FLUSH_AND_WAIT() dq->produce_wait();
 #define PRODUCE_QUEUE_DEFINE() DoubleQueue_Producer *dq
 
 /// Additional macros

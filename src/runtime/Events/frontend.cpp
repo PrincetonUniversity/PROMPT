@@ -128,7 +128,7 @@ void SLAMP_init(uint32_t fn_id, uint32_t loop_id) {
 
   TURN_ON_HOOKS;
   // flush
-  PRODUCE_QUEUE_FLUSH();
+  PRODUCE_QUEUE_FLUSH_AND_WAIT();
 }
 
 void SLAMP_fini(const char *filename) {
