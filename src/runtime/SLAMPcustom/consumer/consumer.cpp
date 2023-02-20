@@ -25,8 +25,9 @@ static inline uint64_t rdtsc() {
 #define DEBUG 0
 #define ACTION 1
 #define MEASURE_TIME 0
-
+// #define COLLECT_TRACE_EVENT
 // #define UNIFIED_WORKFLOW 1
+
 enum class UnifiedAction : char {
   INIT = 0,
   LOAD,
@@ -45,14 +46,6 @@ enum class UnifiedAction : char {
   FINISHED
 };
 
-// #define COLLECT_TRACE_EVENT
-#ifdef COLLECT_TRACE_EVENT
-#include <xmmintrin.h>
-#include <smmintrin.h>
-std::vector<__m128i> event_trace;
-static constexpr unsigned event_trace_size = 10'000'000;
-unsigned event_trace_idx = 0;
-#endif
 
 enum AvailableModules {
   DEPENDENCE_MODULE = 0,
@@ -62,11 +55,18 @@ enum AvailableModules {
   NUM_MODULES = 4
 };
 
+using Action = UnifiedAction;
 constexpr AvailableModules MODULE = DEPENDENCE_MODULE;
 // set the thread count
 constexpr unsigned THREAD_COUNT = 8;
 
-// #define CONSUME         sq_consume(the_queue);
+#ifdef COLLECT_TRACE_EVENT
+#include <xmmintrin.h>
+#include <smmintrin.h>
+std::vector<__m128i> event_trace;
+static constexpr unsigned event_trace_size = 10'000'000;
+unsigned event_trace_idx = 0;
+#endif
 
 static uint64_t load_time(0);
 static uint64_t store_time(0);
@@ -79,12 +79,6 @@ void consume_loop_lv(DoubleQueue &dq, LoadedValueModule &lvMod) ATTRIBUTE(noinli
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
   uint32_t loop_id;
-
-#ifdef UNIFIED_WORKFLOW
-  using Action = UnifiedAction;
-#else
-  using Action = LoadedValueModAction;
-#endif
 
   // measure time with lambda action
   auto measure_time = [](uint64_t &time, auto action) {
@@ -209,11 +203,6 @@ void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod) ATTRIBUTE(noi
   uint64_t counter = 0;
   uint32_t loop_id;
 
-#ifdef UNIFIED_WORKFLOW
-  using Action = UnifiedAction;
-#else
-  using Action = ObjectLifetimeModAction;
-#endif
   // measure time with lambda action
   auto measure_time = [](uint64_t &time, auto action) {
     // measure time with rdtsc
@@ -393,11 +382,6 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
   uint64_t counter = 0;
   uint32_t loop_id;
 
-#ifdef UNIFIED_WORKFLOW
-  using Action = UnifiedAction;
-#else
-  using Action = PointsToModAction;
-#endif
   // measure time with lambda action
   auto measure_time = [](uint64_t &time, auto action) {
     // measure time with rdtsc
@@ -619,11 +603,6 @@ void consume_loop(DoubleQueue &dq, DependenceModule &depMod) ATTRIBUTE(noinline)
   uint64_t counter = 0;
   uint32_t loop_id;
 
-#ifdef UNIFIED_WORKFLOW
-  using Action = UnifiedAction;
-#else
-  using Action = DepModAction;
-#endif
   // measure time with lambda action
   auto measure_time = [](uint64_t &time, auto action) {
     // measure time with rdtsc

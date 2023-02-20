@@ -3,7 +3,8 @@ file(GLOB SRCS
     # "CustomSend_ol.cpp"
     # "CustomSend_lv.cpp"
     # "CustomSend_pt.cpp"
-    "CustomSend.cpp"
+    # "CustomSend.cpp"
+    "../Events/frontend.cpp"
     # "*.c"
 )
 
