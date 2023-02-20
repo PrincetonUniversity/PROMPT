@@ -1,8 +1,8 @@
 ---
 events:
   init:
-    func_id: 32 # Function ID
     loop_id: 32
+    pid: 32
   load:
     instr: 32
     addr: 64
@@ -34,7 +34,7 @@ events:
     inst_id: 32
     ptr: 64
   points_to_arg:
-    inst_id: 32
+    arg_id: 32
     ptr: 64
   finished:
     # no arg

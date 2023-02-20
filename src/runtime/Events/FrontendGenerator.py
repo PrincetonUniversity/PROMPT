@@ -2,6 +2,7 @@
 # and generate the frontend code.
 import json
 import yaml
+import argparse
 import PROMPTQueueProtocol
 from pprint import pprint
 
@@ -69,11 +70,21 @@ def importModuleSpec(api, module_event_file, spec_format="yaml"):
 # Import the queue protocol
 
 if __name__ == "__main__":
-    api = importAPI("api.yaml", "yaml")
-    pprint(api)
+    api = importAPI("configs/api.yaml", "yaml")
     queue_protocol = PROMPTQueueProtocol.QueueProtocol(api)
 
-    mod_spec = importModuleSpec(api, "./DepModEvents.yaml", "yaml")
+    # Parse the arg "--module" or "-m", options are "dep, ol, pt, and lv"
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-m", "--module", help="Module to generate frontend for", choices=["dep", "ol", "pt", "lv"])
+    args = parser.parse_args()
+    module_to_yaml = {
+        "dep": "DepModEvents.yaml",
+        "ol": "ObjectLifetimeModEvents.yaml",
+        "pt": "PointsToModEvents.yaml",
+        "lv": "LoadedValueModEvents.yaml"
+    }
+    mod_spec = importModuleSpec(api, "configs/" + module_to_yaml[args.module], "yaml")
+
     pprint(mod_spec)
     lines = queue_protocol.generateAllProducerFunctions(mod_spec["events"])
 

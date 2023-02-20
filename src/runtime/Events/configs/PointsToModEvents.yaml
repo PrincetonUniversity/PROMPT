@@ -1,0 +1,17 @@
+---
+module: PointsToMod
+description: "Points-to module"
+events:
+  init: [loop_id, pid]
+  alloc: [size, ptr]
+  free: [ptr]
+  loop_invoc: []
+  loop_iter: []
+  loop_entry: [loop_id]
+  loop_exit: [loop_id]
+  func_entry: [function_id]
+  func_exit: [function_id]
+  points_to_inst: [inst_id, ptr]
+  points_to_arg: [arg_id, ptr]
+  finished: []
+...

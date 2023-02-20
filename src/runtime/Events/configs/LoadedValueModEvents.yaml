@@ -1,0 +1,8 @@
+---
+module: LoadedValueMod 
+description: "Loaded Value Prediction Module"
+events:
+  init: [loop_id, pid]
+  load: [instr, value]
+  finished: []
+...

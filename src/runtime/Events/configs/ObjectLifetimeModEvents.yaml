@@ -1,0 +1,14 @@
+---
+module: ObjLifetimeMod
+description: "Object Lifetime Module"
+events:
+  init: [loop_id, pid]
+  alloc: [size, ptr]
+  free: [ptr]
+  loop_invoc: []
+  loop_iter: []
+  loop_exit: []
+  func_entry: [function_id]
+  func_exit: [function_id]
+  finished: []
+...
