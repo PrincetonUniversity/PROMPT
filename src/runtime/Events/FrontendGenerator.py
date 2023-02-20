@@ -75,10 +75,11 @@ if __name__ == "__main__":
 
     # Parse the arg "--module" or "-m", options are "dep, ol, pt, and lv"
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--module", help="Module to generate frontend for", choices=["dep", "ol", "pt", "lv"])
+    parser.add_argument("-m", "--module", help="Module to generate frontend for", choices=["dep", "dep-context", "ol", "pt", "lv"])
     args = parser.parse_args()
     module_to_yaml = {
         "dep": "DepModEvents.yaml",
+        "dep-context" : "DepModule_TrackContext_Events.yaml",
         "ol": "ObjectLifetimeModEvents.yaml",
         "pt": "PointsToModEvents.yaml",
         "lv": "LoadedValueModEvents.yaml"

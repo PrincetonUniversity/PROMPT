@@ -13,8 +13,6 @@
 // #define TRACK_COUNT
 // #define TRACK_MIN_DISTANCE
 
-// #define TRACK_CONTEXT
-
 // #define TRACK_WAW
 // #define TRACK_WAR
 

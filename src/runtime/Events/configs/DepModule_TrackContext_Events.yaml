@@ -1,0 +1,14 @@
+---
+module: DepMod
+description: "Dependence module"
+events:
+  init: [loop_id, pid]
+  load: [instr, addr]
+  store: [instr, addr]
+  alloc: [size, ptr]
+  loop_invoc: []
+  loop_iter: []
+  func_entry: [function_id] # optional if tracking context
+  func_exit: [function_id] # optional if tracking context
+  finished: []
+...

@@ -94,12 +94,7 @@ void DependenceModule::log(TS ts, const uint32_t dst_inst, const uint32_t contex
       return;
     }
 
-#ifdef TRACK_CONTEXT
     slamp::KEY key(src_inst, dst_inst, context, src_iter != slamp_iteration);
-#else
-    slamp::KEY key(src_inst, dst_inst, 0, src_iter != slamp_iteration);
-#endif
-
 
 #ifdef TRACK_MIN_DISTANCE
     auto dist = slamp_iteration - src_iter;
@@ -132,10 +127,9 @@ void DependenceModule::load(uint32_t instr, const uint64_t addr, const uint32_t 
       // log_time += end - start;
     }
 #ifdef TRACK_WAR
-#ifdef TRACK_CONTEXT
-    if (context != 0)
+    if (context != 0) {
       instr = context;
-#endif
+    }
     TS ts = CREATE_TS(instr, slamp_iteration, slamp_invocation);
     s[1] = ts;
 #endif
@@ -166,10 +160,9 @@ void DependenceModule::store(uint32_t instr, uint32_t bare_instr, const uint64_t
     }
 #endif
 
-#ifdef TRACK_CONTEXT
-    if (context != 0)
+    if (context != 0) {
       instr = context;
-#endif
+    }
     TS ts = CREATE_TS(instr, slamp_iteration, slamp_invocation);
     shadow_addr[0] = ts;
 
