@@ -3,7 +3,7 @@ module: PointsToMod
 description: "Points-to module"
 events:
   init: [loop_id, pid]
-  alloc: [size, ptr]
+  alloc: [inst_id, size, ptr]
   free: [ptr]
   loop_invoc: []
   loop_iter: []
