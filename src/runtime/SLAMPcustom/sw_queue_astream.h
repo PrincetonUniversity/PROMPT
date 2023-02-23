@@ -17,7 +17,7 @@
 #include <thread>
 
 #define ATTRIBUTE(x) __attribute__((x))
-#define ATTRIBUTE(x) 
+// #define ATTRIBUTE(x) 
 
 #include "inline.h"
 #include "bitcast.h"
