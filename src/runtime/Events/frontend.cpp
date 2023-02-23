@@ -60,6 +60,10 @@ static void *(*old_memalign_hook)(size_t, size_t, const void *);
 #define PRODUCE_LOOP_EXIT(loop_id)
 #endif
 
+#ifndef PRODUCE_LOOP_ITER_CTX
+#define PRODUCE_LOOP_ITER_CTX(loop_id)
+#endif
+
 #ifndef PRODUCE_LOOP_INVOC
 #define PRODUCE_LOOP_INVOC()
 #endif
