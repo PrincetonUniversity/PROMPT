@@ -1,4 +1,5 @@
 #include "slamp_consume.h"
+#include "ProfilingModule.h"
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
@@ -8,13 +9,17 @@
 #define ACTION 1
 #define MEASURE_TIME 0
 
+static uint64_t load_time(0);
+static uint64_t store_time(0);
+static uint64_t alloc_time(0);
+
 static inline uint64_t rdtsc() {
   uint64_t a, d;
   __asm__ volatile("rdtsc" : "=a"(a), "=d"(d));
   return (d << 32) | a;
 }
 
-void consume_loop() ATTRIBUTE(noinline) {
+void consume_loop(ProfilingModule &mod) ATTRIBUTE(noinline) {
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
   uint32_t loop_id;
