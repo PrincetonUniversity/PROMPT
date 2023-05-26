@@ -6,24 +6,23 @@ INSTALL_DIR?=${CURRENT_DIR}/install
 # ON or OFF
 RUNTIME_LTO?=ON
 ifndef NOELLE_INSTALL_DIR
-	$(error NOELLE_INSTALL_DIR is not set)
+$(error NOELLE_INSTALL_DIR is not set)
 endif
 ifndef SCAF_INSTALL_DIR
-	$(error SCAF_INSTALL_DIR is not set)
-endif
+$(error SCAF_INSTALL_DIR is not set)
+ endif
 
 all: install
 
 .PHONY: build install clean check-path
 
 check-path:
-
-
-build: check-path
 	@echo "Building in ${BUILD_DIR}"
 	@echo "Installing in ${INSTALL_DIR}"
 	@echo "Build type: ${BUILD_TYPE}"
 	@echo "Runtime LTO: ${RUNTIME_LTO}"
+
+build: check-path
 	mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR) && cmake -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_INSTALL_PREFIX=$(INSTALL_DIR) -DRUNTIME_LTO=$(RUNTIME_LTO) ../src
 	cd $(BUILD_DIR) && make -j4

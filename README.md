@@ -31,7 +31,7 @@ The .rc file is generated in PROMPT/install
 Example:
 ```bash
 source PROMPT/install/PROMPT.rc
-# Or ~/PROMPT/scripts/slamp-driver benchmark.bc if there is proper loop profile
+# Or slamp-driver benchmark.bc if there is proper loop profile
 PROFILEARGS="aminos 1234 123" slamp-driver benchmark.plain.bc md for.cond219
 ```
 
@@ -65,6 +65,8 @@ Note that the first dependence of a loop is always `[loop id, 0, 0, 0, 0, 0]`, s
 - [ ] Convert producer library to be configurable
 
 #### Implementation
+- [ ] External function handling: currently disabled in `SLAMP.cpp` by not doing the replacements
+- [ ] External function handling with correct report of allocation events
 - [ ] Multithreaded profiling?
 - [ ] Multiple loops at the same time
 - [ ] Package the components better
@@ -72,7 +74,6 @@ Note that the first dependence of a loop is always `[loop id, 0, 0, 0, 0, 0]`, s
     - The container
 - [ ] Parallel Containers
     - Replace the vector with a lower-latency memory region
-- [ ] External function handling
 - [ ] 16 bytes load and store handling
 
 #### Integration

@@ -5,6 +5,7 @@ file(GLOB SRCS
     # "CustomSend_pt.cpp"
     # "CustomSend.cpp"
     "../Events/frontend.cpp"
+    "../Events/slamp_ext_hooks.cpp"
     # "*.c"
 )
 
