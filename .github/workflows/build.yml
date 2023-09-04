@@ -19,15 +19,15 @@ jobs:
         with:
           path: |
             llvm-install
-          key: ${{ job.outputs.cache-key }}
+          key: llvm-9.0.1-${{ runner.os }}
 
       - name: Checkout LLVM
-        if: steps.cache.outputs.cache-hit != 'true' 
+        if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/checkout@v3
         with:
           repository: llvm/llvm-project
           ref: refs/tags/llvmorg-9.0.1
-          submodules: false 
+          submodules: false
           fetch-depth: 1 # shallow
           path: llvm
 
@@ -62,10 +62,10 @@ jobs:
         with:
           path: |
             noelle-install
-          key: ${{ job.outputs.cache-key }}
+          key: noelee-${{ runner.os }}
 
       - name: Restore cache from LLVM
-        if : steps.cache.outputs.cache-hit != 'true'
+        if: steps.cache.outputs.cache-hit != 'true'
         id: cache-llvm
         uses: actions/cache@v3
         with:
@@ -85,11 +85,12 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           LLVM_INSTALL=$(realpath llvm-install)
+          mkdir -p noelle-install
+          NOELLE_INSTALL=$(realpath noelle-install)
           PATH=${LLVM_INSTALL}/bin/:${PATH} \
           LLVM_CMAKE_DIR=${LLVM_INSTALL}/lib/cmake/llvm \
-          PDG_INSTALL_DIR=${{ job.outputs.cache-key }} \
+          PDG_INSTALL_DIR=${NOELLE_INSTALL} \
           make -C noelle all
-
 
   build:
     needs: [build-llvm-9, build-noelle]
@@ -108,7 +109,7 @@ jobs:
           key: ${{ needs.build-llvm-9.outputs.cache-key }}
           restore-keys: |
             ${{ needs.build-llvm-9.outputs.cache-key }}
-      
+
       - name: Restore cache from Noelle
         id: cache-noelle
         uses: actions/cache@v3
