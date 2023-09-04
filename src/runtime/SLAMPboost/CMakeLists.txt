@@ -7,8 +7,8 @@ set(CMAKE_C_COMPILER "clang")
 set(CMAKE_CXX_COMPILER "clang++")
 
 # Compilation flags
-# set_source_files_properties(${SRCS} PROPERTIES COMPILE_FLAGS "-Wl,-save-temps -std=c++17 -Wno-inline -O3 -fexceptions")# -emit-llvm")
-set_source_files_properties(${SRCS} PROPERTIES COMPILE_FLAGS "-std=c++17 -Wno-inline -O3 -fexceptions")
+# set_source_files_properties(${SRCS} PROPERTIES COMPILE_FLAGS "-Wl,-save-temps -std=c++20 -Wno-inline -O3 -fexceptions")# -emit-llvm")
+set_source_files_properties(${SRCS} PROPERTIES COMPILE_FLAGS "-std=c++20 -Wno-inline -O3 -fexceptions")
 
 # if RUNTIME_LTO is set, add LTO flags
 if(RUNTIME_LTO)
