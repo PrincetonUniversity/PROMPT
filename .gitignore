@@ -1,3 +1,6 @@
+### VS Code ###
+.vscode
+
 ### Doc ###
 # To prevent the doc directory is added back
 /doc
