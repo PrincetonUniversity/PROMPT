@@ -1,0 +1,130 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build-llvm-9:
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: llvm-9.0.1-${{ runner.os }}
+
+    steps:
+      - name: Cache dependencies
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            llvm-install
+          key: ${{ job.outputs.cache-key }}
+
+      - name: Checkout LLVM
+        if: steps.cache.outputs.cache-hit != 'true' 
+        uses: actions/checkout@v3
+        with:
+          repository: llvm/llvm-project
+          ref: refs/tags/llvmorg-9.0.1
+          submodules: false 
+          fetch-depth: 1 # shallow
+          path: llvm
+
+      - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ninja-build
+
+      - name: Build LLVM
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir build
+          cd build
+          cmake -G Ninja ../llvm -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;compiler-rt" -DCMAKE_BUILD_TYPE=Release \
+           -DLLVM_TARGETS_TO_BUILD="X86" \
+           -DLLVM_ENABLE_ASSERTIONS=ON \
+           -DLLVM_ABI_BREAKING_CHECKS=FORCE_OFF \
+           -DCMAKE_INSTALL_PREFIX=../llvm-install \
+           -DCMAKE_CXX_STANDARD="17"
+
+          ninja
+
+  build-noelle:
+    needs: build-llvm-9
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: noelle-${{ runner.os }}
+
+    steps:
+      - name: Cache dependencies
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            noelle-install
+          key: ${{ job.outputs.cache-key }}
+
+      - name: Restore cache from LLVM
+        if : steps.cache.outputs.cache-hit != 'true'
+        id: cache-llvm
+        uses: actions/cache@v3
+        with:
+          path: llvm-install
+          key: ${{ needs.build-llvm-9.outputs.cache-key }}
+          restore-keys: |
+            ${{ needs.build-llvm-9.outputs.cache-key }}
+
+      - name: Checkout Noelle
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v3
+        with:
+          repository: arcana-lab/noelle
+          path: noelle
+
+      - name: Build Noelle
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          LLVM_INSTALL=$(realpath llvm-install)
+          PATH=${LLVM_INSTALL}/bin/:${PATH} \
+          LLVM_CMAKE_DIR=${LLVM_INSTALL}/lib/cmake/llvm \
+          PDG_INSTALL_DIR=${{ job.outputs.cache-key }} \
+          make -C noelle all
+
+
+  build:
+    needs: [build-llvm-9, build-noelle]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          path: PROMPT
+
+      - name: Restore cache from LLVM
+        id: cache-llvm
+        uses: actions/cache@v3
+        with:
+          path: llvm-install
+          key: ${{ needs.build-llvm-9.outputs.cache-key }}
+          restore-keys: |
+            ${{ needs.build-llvm-9.outputs.cache-key }}
+      
+      - name: Restore cache from Noelle
+        id: cache-noelle
+        uses: actions/cache@v3
+        with:
+          path: noelle-install
+          key: ${{ needs.build-noelle.outputs.cache-key }}
+          restore-keys: |
+            ${{ needs.build-noelle.outputs.cache-key }}
+
+      - name: Build
+        run: |
+          cd PROMPT
+          noelle-install=$(realpath noelle-install)
+          llvm-install=$(realpath llvm-install)
+          export SCAF_INSTALL_DIR=${noelle-install}
+          export NOELLE_INSTALL_DIR=${noelle-install}
+          export PATH=${llvm-install}:$PATH
+          make build
+          make install
