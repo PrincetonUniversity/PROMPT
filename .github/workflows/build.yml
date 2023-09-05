@@ -48,6 +48,7 @@ jobs:
            -DCMAKE_CXX_STANDARD="17"
 
           ninja
+          ninja install
 
   build-noelle:
     needs: build-llvm-9
@@ -62,7 +63,7 @@ jobs:
         with:
           path: |
             noelle-install
-          key: noelee-${{ runner.os }}
+          key: noelle-${{ runner.os }}
 
       - name: Restore cache from LLVM
         if: steps.cache.outputs.cache-hit != 'true'
