@@ -139,9 +139,9 @@ jobs:
           noelle_install=$(realpath noelle-install)
           llvm_install=$(realpath llvm-install)
           cd PROMPT
-          cd runtime/Events
+          cd src/runtime/Events
           python FrontendGenerator.py -m dep
-          cd ../..
+          cd ../../..
           export SCAF_INSTALL_DIR=${noelle_install}
           export NOELLE_INSTALL_DIR=${noelle_install}
           export PATH=${llvm_install}:$PATH
