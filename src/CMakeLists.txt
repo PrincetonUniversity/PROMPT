@@ -11,6 +11,10 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 option(RUNTIME_LTO "Enable runtime LTO" ON)
 message(STATUS "RUNTIME_LTO: ${RUNTIME_LTO}")
 
+# Option Comparison runtime
+option(DO_COMPARE "Compare other runtimes (SLAMPboost)" OFF)
+message(STATUS "DO_COMPARE: ${DO_COMPARE}")
+
 add_subdirectory(lib)
 add_subdirectory(runtime)
 
