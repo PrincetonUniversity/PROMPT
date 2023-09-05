@@ -119,6 +119,10 @@ jobs:
           key: ${{ needs.build-noelle.outputs.cache-key }}
           restore-keys: |
             ${{ needs.build-noelle.outputs.cache-key }}
+      
+      - name: install boost
+        run: |
+          sudo apt-get install -y libboost-all-dev
 
       - name: Build
         run: |
