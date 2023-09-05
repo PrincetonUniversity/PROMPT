@@ -120,9 +120,9 @@ jobs:
           restore-keys: |
             ${{ needs.build-noelle.outputs.cache-key }}
       
-      - name: Install boost
+      - name: Install system dependences
         run: |
-          sudo apt-get install -y libboost-all-dev
+          sudo apt-get install -y build-essential libboost-all-dev libunwind-dev
 
       - name: Set up Python 3.x
         uses: actions/setup-python@v2
