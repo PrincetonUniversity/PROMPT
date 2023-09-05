@@ -122,11 +122,11 @@ jobs:
 
       - name: Build
         run: |
-          noelle-install=$(realpath noelle-install)
-          llvm-install=$(realpath llvm-install)
+          noelle_install=$(realpath noelle-install)
+          llvm_install=$(realpath llvm-install)
           cd PROMPT
-          export SCAF_INSTALL_DIR=${noelle-install}
-          export NOELLE_INSTALL_DIR=${noelle-install}
-          export PATH=${llvm-install}:$PATH
+          export SCAF_INSTALL_DIR=${noelle_install}
+          export NOELLE_INSTALL_DIR=${noelle_install}
+          export PATH=${llvm_install}:$PATH
           make build
           make install
