@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-llvm-9:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     outputs:
       cache-key: llvm-9.0.1-${{ runner.os }}
 
@@ -52,7 +52,7 @@ jobs:
 
   build-noelle:
     needs: build-llvm-9
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     outputs:
       cache-key: noelle-${{ runner.os }}
 
@@ -95,7 +95,7 @@ jobs:
 
   build:
     needs: [build-llvm-9, build-noelle]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v3
