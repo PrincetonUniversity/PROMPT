@@ -34,7 +34,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.cache.outputs.cache-hit != 'true'
-        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ninja-build
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ninja-build binutils-dev
 
       - name: Build LLVM
         if: steps.cache.outputs.cache-hit != 'true'
@@ -45,6 +45,7 @@ jobs:
            -DLLVM_TARGETS_TO_BUILD="X86" \
            -DLLVM_ENABLE_ASSERTIONS=ON \
            -DLLVM_ABI_BREAKING_CHECKS=FORCE_OFF \
+           -DLLVM_BINUTILS_INCDIR=/usr/include \
            -DCMAKE_INSTALL_PREFIX=../llvm-install \
            -DCMAKE_CXX_STANDARD="17"
 
@@ -123,7 +124,7 @@ jobs:
 
       - name: Install system dependences
         run: |
-          sudo apt-get install -y build-essential libboost-all-dev libunwind-dev binutils-gold
+          sudo apt-get install -y build-essential libboost-all-dev libunwind-dev binutils-dev
 
       - name: Set up Python 3.x
         uses: actions/setup-python@v2
