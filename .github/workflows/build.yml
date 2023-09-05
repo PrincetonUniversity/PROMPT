@@ -144,6 +144,6 @@ jobs:
           cd ../../..
           export SCAF_INSTALL_DIR=${noelle_install}
           export NOELLE_INSTALL_DIR=${noelle_install}
-          export PATH=${llvm_install}:$PATH
+          export PATH=${llvm_install}/bin:$PATH
           make build
           make install

@@ -1,6 +1,7 @@
 ## PROMPT: A Fast and Extensible Memory Profiling Framework
 
 ### Build
+
 - Required software: NOELLE, SCAF (by default turned on in NOELLE)
 
 ```
@@ -62,9 +63,10 @@ Note that the first dependence of a loop is always `[loop id, 0, 0, 0, 0, 0]`, s
 - [x] Compile with NOELLE and SCAF (without Speculation Modules)
 - [x] Seperate all profiling modules out
 - [x] Make LTO optional
-- [ ] Convert producer library to be configurable
+- [x] Convert producer library to be configurable
 
 #### Implementation
+- [ ] Replace malloc hook (removed in glibc 2.35)
 - [ ] External function handling: currently disabled in `SLAMP.cpp` by not doing the replacements
 - [ ] External function handling with correct report of allocation events
 - [ ] Multithreaded profiling?
@@ -93,8 +95,4 @@ Note that the first dependence of a loop is always `[loop id, 0, 0, 0, 0, 0]`, s
 - [ ] Extending with new profiler doc
 
 ### Modules
-
-
-
-
 
