@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Cache dependencies
         id: cache
-        uses: actions/cache@v3.0.0
+        uses: actions/cache@v2
         with:
           path: |
             llvm-install
@@ -59,7 +59,7 @@ jobs:
     steps:
       - name: Cache dependencies
         id: cache
-        uses: actions/cache@v3.0.0
+        uses: actions/cache@v2
         with:
           path: |
             noelle-install
@@ -68,7 +68,7 @@ jobs:
       - name: Restore cache from LLVM
         if: steps.cache.outputs.cache-hit != 'true'
         id: cache-llvm
-        uses: actions/cache@v3.0.0
+        uses: actions/cache@v2
         with:
           path: llvm-install
           key: ${{ needs.build-llvm-9.outputs.cache-key }}
@@ -104,7 +104,7 @@ jobs:
 
       - name: Restore cache from LLVM
         id: cache-llvm
-        uses: actions/cache@v3.0.0
+        uses: actions/cache@v2
         with:
           path: llvm-install
           key: ${{ needs.build-llvm-9.outputs.cache-key }}
@@ -113,7 +113,7 @@ jobs:
 
       - name: Restore cache from Noelle
         id: cache-noelle
-        uses: actions/cache@v3.0.0
+        uses: actions/cache@v2
         with:
           path: noelle-install
           key: ${{ needs.build-noelle.outputs.cache-key }}
