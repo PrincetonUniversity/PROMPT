@@ -5,6 +5,7 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  workflow_dispatch:
 
 jobs:
   build-llvm-9:
@@ -119,7 +120,7 @@ jobs:
           key: ${{ needs.build-noelle.outputs.cache-key }}
           restore-keys: |
             ${{ needs.build-noelle.outputs.cache-key }}
-      
+
       - name: Install system dependences
         run: |
           sudo apt-get install -y build-essential libboost-all-dev libunwind-dev binutils-gold
@@ -128,7 +129,7 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.x
-    
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
