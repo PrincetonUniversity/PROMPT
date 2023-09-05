@@ -1,9 +1,6 @@
 file(GLOB SRCS
     "*.cpp"
 )
-# add CMAKE_PREFIX_PATH
-set(CMAKE_C_COMPILER "clang")
-set(CMAKE_CXX_COMPILER "clang++")
 
 # Compilation flags
 # set_source_files_properties(${SRCS} PROPERTIES COMPILE_FLAGS "-Wl,-save-temps -std=c++20 -Wno-inline -O3 -fexceptions")# -emit-llvm")
