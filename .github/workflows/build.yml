@@ -122,9 +122,9 @@ jobs:
 
       - name: Build
         run: |
-          cd PROMPT
           noelle-install=$(realpath noelle-install)
           llvm-install=$(realpath llvm-install)
+          cd PROMPT
           export SCAF_INSTALL_DIR=${noelle-install}
           export NOELLE_INSTALL_DIR=${noelle-install}
           export PATH=${llvm-install}:$PATH
