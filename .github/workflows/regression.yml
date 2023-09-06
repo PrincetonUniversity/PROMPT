@@ -1,0 +1,60 @@
+name: Regression Test
+
+on:
+  workflow_run:
+    workflows: ["Build"]
+    branches: "*"
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  regression:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Restore cache from LLVM
+        id: cache-llvm
+        uses: actions/cache@v3
+        with:
+          path: llvm-install
+          key: llvm-9.0.1-${{ runner.os }}
+          restore-keys: |
+            llvm-9.0.1-${{ runner.os }}
+
+      - name: Restore cache from Noelle
+        id: cache-noelle
+        uses: actions/cache@v3
+        with:
+          path: noelle-install
+          key: noelle-${{ runner.os }}
+          restore-keys: |
+            noelle-${{ runner.os }}
+
+      - name: Restore cache from PROMPT
+        id: cache-prompt
+        uses: actions/cache@v3
+        with:
+          path: prompt-install
+          key: ${{ runner.os }}-prompt-install-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-prompt-install-${{ github.sha }}
+
+      - name: Run regression tests
+        run: |
+          LLVM_INSTALL=$(realpath llvm-install)
+          PROMPT_INSTALL=$(realpath prompt-install)
+          source ${PROMPT_INSTALL}/PROMPT.rc
+          export PATH=${LLVM_INSTALL}/bin/:${PATH}
+
+          test_dirs=("test1")
+          for name in "${test_dirs[@]}"; do
+            for dir in tests/regression/${name}/src/*; do
+              pushd $dir
+              make benchmark.result.slamp.profile
+              diff benchmark.result.slamp.profile ../profile/benchmark.result.slamp.profile
+              popd
+            done
+          done

@@ -1,5 +1,7 @@
 PROFILESETUP=
 PROFILEARGS=10000 100 20
 
+TARGET_FCN=main
+TARGET_LOOP=for.cond10
 NOINLINE=1
 include ../../Makefile.generic

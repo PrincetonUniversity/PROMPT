@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Cache dependencies
         id: cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             llvm-install
@@ -61,7 +61,7 @@ jobs:
     steps:
       - name: Cache dependencies
         id: cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             noelle-install
@@ -70,7 +70,7 @@ jobs:
       - name: Restore cache from LLVM
         if: steps.cache.outputs.cache-hit != 'true'
         id: cache-llvm
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: llvm-install
           key: ${{ needs.build-llvm-9.outputs.cache-key }}
@@ -95,7 +95,7 @@ jobs:
           PDG_INSTALL_DIR=${NOELLE_INSTALL} \
           make -C noelle all
 
-  build:
+  build-prompt:
     needs: [build-llvm-9, build-noelle]
     runs-on: ubuntu-20.04
 
@@ -106,7 +106,7 @@ jobs:
 
       - name: Restore cache from LLVM
         id: cache-llvm
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: llvm-install
           key: ${{ needs.build-llvm-9.outputs.cache-key }}
@@ -115,7 +115,7 @@ jobs:
 
       - name: Restore cache from Noelle
         id: cache-noelle
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: noelle-install
           key: ${{ needs.build-noelle.outputs.cache-key }}
@@ -151,3 +151,9 @@ jobs:
           export CXX=clang++
           make build
           make install
+
+      - name: Cache PROMPT/install directory
+        uses: actions/cache@v3
+        with:
+          path: PROMPT/install
+          key: ${{ runner.os }}-prompt-install-${{ github.sha }}
