@@ -1,8 +1,6 @@
-file(
-  GLOB
-  SRCS
-  "../frontend/frontend.cpp"
-  "../frontend/slamp_ext_hooks.cpp"
+set(SRCS
+    "frontend.cpp"
+    "slamp_ext_hooks.cpp"
 )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -g")
@@ -20,7 +18,7 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Boost REQUIRED COMPONENTS system)
 include_directories(${Boost_INCLUDE_DIRS})
 
-include_directories(./)
+include_directories(./ ../)
 add_library(${PassName} STATIC ${SRCS})
 target_link_libraries(${PassName} ${Boost_LIBRARIES})
 
