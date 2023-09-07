@@ -42,6 +42,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-prompt-install-
 
+      - name: Install system dependences
+        run: |
+          sudo apt-get install -y build-essential libboost-all-dev libunwind-dev binutils-dev
+
       - name: Run regression tests
         run: |
           LLVM_INSTALL=$(realpath llvm-install)
