@@ -51,10 +51,8 @@ jobs:
 
           test_dirs=("test1")
           for name in "${test_dirs[@]}"; do
-            for dir in tests/regression/${name}/src/*; do
-              pushd $dir
-              make benchmark.result.slamp.profile
-              diff benchmark.result.slamp.profile ../profile/benchmark.result.slamp.profile
-              popd
-            done
+            pushd tests/regression/${name}/src
+            make benchmark.result.slamp.profile
+            diff benchmark.result.slamp.profile ../profile/benchmark.result.slamp.profile
+            popd
           done
