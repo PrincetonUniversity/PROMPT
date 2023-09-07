@@ -45,7 +45,8 @@ jobs:
       - name: Run regression tests
         run: |
           LLVM_INSTALL=$(realpath llvm-install)
-          PROMPT_INSTALL=$(realpath prompt-install)
+          # TODO: this path is due to cache restoring to a top path, but the nested dirs are preserved
+          PROMPT_INSTALL=$(realpath prompt-install/install)
           source ${PROMPT_INSTALL}/PROMPT.rc
           export PATH=${LLVM_INSTALL}/bin/:${PATH}
 
