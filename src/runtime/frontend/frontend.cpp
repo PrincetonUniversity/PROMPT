@@ -296,7 +296,13 @@ void SLAMP_storen_ext(const uint64_t addr, const uint32_t bare_inst, size_t n) {
 void malloc_callback(void *ptr, size_t size) {
   PRODUCE_ALLOC(ext_fn_inst_id, size, (uint64_t)ptr);
 }
+
+void calloc_callback(void *ptr, size_t nmemb, size_t size) {
+  PRODUCE_ALLOC(ext_fn_inst_id, size * nmemb, (uint64_t)ptr);
+}
+
 void free_callback(void *ptr) { PRODUCE_FREE((uint64_t)ptr); }
+
 void realloc_callback(void *new_ptr, void *ptr, size_t size) {
   // TODO: the old pointer might be freed. Need to check whether the two
   // pointers are the same

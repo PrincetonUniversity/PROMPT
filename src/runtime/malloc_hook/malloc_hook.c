@@ -1,12 +1,13 @@
-#include "malloc_hook.h"
 #include <stdbool.h>
 
+#include "malloc_hook.h"
 bool hook_enabled = false;
 
 extern void *__libc_malloc(size_t size);
 extern void __libc_free(void *ptr);
 extern void *__libc_realloc(void *ptr, size_t size);
 extern void *__libc_memalign(size_t alignment, size_t size);
+extern void *__libc_calloc(size_t nmemb, size_t size);
 
 void __attribute__((weak)) malloc_callback(void *ptr, size_t size) {}
 
@@ -17,6 +18,9 @@ realloc_callback(void *new_ptr, void *ptr, size_t size) {}
 
 void __attribute__((weak))
 memalign_callback(void *ptr, size_t alignment, size_t size) {}
+
+void __attribute__((weak))
+calloc_callback(void *ptr, size_t nmemb, size_t size) {}
 
 void *malloc(size_t size) {
   void *ptr = __libc_malloc(size);
@@ -31,6 +35,14 @@ void free(void *ptr) {
   if (hook_enabled) {
     free_callback(ptr);
   }
+}
+
+void *calloc(size_t nmemb, size_t size) {
+  void *ptr = __libc_calloc(nmemb, size);
+  if (hook_enabled) {
+    calloc_callback(ptr, nmemb, size);
+  }
+  return ptr;
 }
 
 void *realloc(void *ptr, size_t size) {
