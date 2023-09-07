@@ -2,9 +2,9 @@ name: Build
 
 on:
   push:
-    branches: [master]
+    branches: ["*"]
   pull_request:
-    branches: [master]
+    branches: ["*"]
   workflow_dispatch:
 
 jobs:
@@ -141,7 +141,8 @@ jobs:
           noelle_install=$(realpath noelle-install)
           llvm_install=$(realpath llvm-install)
           cd PROMPT
-          cd src/runtime/Events
+          cd src/runtime/frontend
+          # TODO: this only test the Dependence Module
           python FrontendGenerator.py -m dep
           cd ../../..
           export SCAF_INSTALL_DIR=${noelle_install}
