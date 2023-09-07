@@ -298,6 +298,8 @@ void malloc_callback(void *ptr, size_t size) {
 }
 void free_callback(void *ptr) { PRODUCE_FREE((uint64_t)ptr); }
 void realloc_callback(void *new_ptr, void *ptr, size_t size) {
+  // TODO: the old pointer might be freed. Need to check whether the two
+  // pointers are the same
   PRODUCE_ALLOC(ext_fn_inst_id, size, (uint64_t)new_ptr);
 }
 void memalign_callback(void *ptr, size_t alignment, size_t size) {
