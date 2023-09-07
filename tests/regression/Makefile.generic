@@ -76,7 +76,7 @@ $(PLAIN).o3.exe : $(PLAIN).o3.bc
 	$(PROFILESETUP)
 	- cp $*.loopProf.out loopProf.out
 	DEFAULT_LDFLAGS="$(DEFAULT_LDFLAGS)" DEFAULT_LIBS="$(DEFAULT_LIBS)" PROFILEARGS="$(ARGS) $(PROFILEARGS)" SETUP="$(SETUP) $(PROFILESETUP)" \
-	slamp-driver $*.bc $(TARGET_FCN) $(TARGET_LOOP) #> rabbit6 2>&1
+	slamp-driver $*.bc $(TARGET_FCN) $(TARGET_LOOP) > rabbit6 2>&1
 	mv result.slamp.profile $@
 	rm -f loopProf.out
 	$(CLEANUP)
