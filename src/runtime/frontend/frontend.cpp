@@ -9,7 +9,7 @@
 
 extern "C" bool hook_enabled;
 
-//#define SAMPLING_ITER
+// #define SAMPLING_ITER
 static int nested_level = 0;
 static bool on_profiling = false;
 
@@ -294,17 +294,14 @@ void SLAMP_storen_ext(const uint64_t addr, const uint32_t bare_inst, size_t n) {
   SLAMP_storen(bare_inst, addr, n);
 }
 
-
-void malloc_callback(void* ptr, size_t size) {
+void malloc_callback(void *ptr, size_t size) {
   PRODUCE_ALLOC(ext_fn_inst_id, size, (uint64_t)ptr);
 }
-void free_callback(void* ptr) {
-  PRODUCE_FREE((uint64_t)ptr);
-}
-void realloc_callback(void* new_ptr, void* ptr, size_t size) {
+void free_callback(void *ptr) { PRODUCE_FREE((uint64_t)ptr); }
+void realloc_callback(void *new_ptr, void *ptr, size_t size) {
   PRODUCE_ALLOC(ext_fn_inst_id, size, (uint64_t)new_ptr);
 }
-void memalign_callback(void* ptr, size_t alignment, size_t size) {
+void memalign_callback(void *ptr, size_t alignment, size_t size) {
   PRODUCE_ALLOC(ext_fn_inst_id, size, (uint64_t)ptr);
 }
 
