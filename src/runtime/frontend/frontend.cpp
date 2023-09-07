@@ -1,4 +1,3 @@
-#include "malloc.h"
 #include "slamp_hooks.h"
 #include "slamp_produce.h"
 #include <cstdint>
