@@ -1,11 +1,14 @@
-#include "malloc.h"
 #include "slamp_hooks.h"
 #include "slamp_produce.h"
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
 
-//#define SAMPLING_ITER
+#include "malloc_hook/malloc_hook.h"
+
+extern "C" bool hook_enabled;
+
+// #define SAMPLING_ITER
 static int nested_level = 0;
 static bool on_profiling = false;
 
@@ -88,18 +91,6 @@ static void *(*old_memalign_hook)(size_t, size_t, const void *);
 #define PRODUCE_STORE(instr, addr)
 #endif
 
-#define TURN_ON_HOOKS                                                          \
-  __malloc_hook = SLAMP_malloc_hook;                                           \
-  __realloc_hook = SLAMP_realloc_hook;                                         \
-  __memalign_hook = SLAMP_memalign_hook;                                       \
-  __free_hook = SLAMP_free_hook;
-
-#define TURN_OFF_HOOKS                                                         \
-  __malloc_hook = old_malloc_hook;                                             \
-  __realloc_hook = old_realloc_hook;                                           \
-  __memalign_hook = old_memalign_hook;                                         \
-  __free_hook = old_free_hook;
-
 static volatile char *lc_dummy = NULL;
 
 PRODUCE_QUEUE_DEFINE();
@@ -125,12 +116,9 @@ void SLAMP_init(uint32_t fn_id, uint32_t loop_id) {
   // FIXME: a dirty way to get locale updated
   lc_dummy = setlocale(LC_ALL, "");
 
-  old_malloc_hook = __malloc_hook;
-  old_free_hook = __free_hook;
-  old_memalign_hook = __memalign_hook;
-  old_realloc_hook = __realloc_hook;
+  // TURN ON HOOKS
+  hook_enabled = true;
 
-  TURN_ON_HOOKS;
   // flush
   PRODUCE_QUEUE_FLUSH_AND_WAIT();
 }
@@ -139,6 +127,9 @@ void SLAMP_fini(const char *filename) {
   PRODUCE_FINISHED();
 
   PRODUCE_QUEUE_FLUSH();
+
+  // TURN OFF HOOKS
+  hook_enabled = false;
 
   if (nested_level != 0) {
     std::cerr << "Error: nested_level != 0 on exit" << std::endl;
@@ -302,37 +293,17 @@ void SLAMP_storen_ext(const uint64_t addr, const uint32_t bare_inst, size_t n) {
   SLAMP_storen(bare_inst, addr, n);
 }
 
-/* wrappers for memory allocation events*/
-static void *SLAMP_malloc_hook(size_t size, const void *caller) {
-  TURN_OFF_HOOKS
-  void *ptr = malloc(size);
+void malloc_callback(void *ptr, size_t size) {
   PRODUCE_ALLOC(ext_fn_inst_id, size, (uint64_t)ptr);
-  TURN_ON_HOOKS
-  return ptr;
 }
-
-static void *SLAMP_realloc_hook(void *ptr, size_t size, const void *caller) {
-  TURN_OFF_HOOKS
-  void *new_ptr = realloc(ptr, size);
+void free_callback(void *ptr) { PRODUCE_FREE((uint64_t)ptr); }
+void realloc_callback(void *new_ptr, void *ptr, size_t size) {
+  // TODO: the old pointer might be freed. Need to check whether the two
+  // pointers are the same
   PRODUCE_ALLOC(ext_fn_inst_id, size, (uint64_t)new_ptr);
-  TURN_ON_HOOKS
-  return new_ptr;
 }
-
-static void *SLAMP_memalign_hook(size_t alignment, size_t size,
-                                 const void *caller) {
-  TURN_OFF_HOOKS
-  void *ptr = memalign(alignment, size);
+void memalign_callback(void *ptr, size_t alignment, size_t size) {
   PRODUCE_ALLOC(ext_fn_inst_id, size, (uint64_t)ptr);
-  TURN_ON_HOOKS
-  return ptr;
-}
-
-static void SLAMP_free_hook(void *ptr, const void *caller) {
-  TURN_OFF_HOOKS
-  free(ptr);
-  PRODUCE_FREE((uint64_t)ptr);
-  TURN_ON_HOOKS
 }
 
 // FIXME: a bunch of unused functions

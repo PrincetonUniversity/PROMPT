@@ -3,7 +3,6 @@ name: Regression Test
 on:
   workflow_run:
     workflows: ["Build"]
-    branches: "*"
     types:
       - completed
   workflow_dispatch:
