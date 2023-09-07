@@ -32,21 +32,20 @@ jobs:
           key: noelle-${{ runner.os }}
           restore-keys: |
             noelle-${{ runner.os }}
-
+          
       - name: Restore cache from PROMPT
         id: cache-prompt
         uses: actions/cache@v3
         with:
-          path: prompt-install
+          path: PROMPT/install
           key: ${{ runner.os }}-prompt-install-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-prompt-install-${{ github.sha }}
+            ${{ runner.os }}-prompt-install-
 
       - name: Run regression tests
         run: |
           LLVM_INSTALL=$(realpath llvm-install)
-          # TODO: this path is due to cache restoring to a top path, but the nested dirs are preserved
-          PROMPT_INSTALL=$(realpath prompt-install/install)
+          PROMPT_INSTALL=$(realpath PROMPT/install)
           source ${PROMPT_INSTALL}/PROMPT.rc
           export PATH=${LLVM_INSTALL}/bin/:${PATH}
 
