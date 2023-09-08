@@ -103,7 +103,6 @@ function drive {
   $CMD2
   echo $CMD3
   $CMD3
-  echo $CMD3
 
   echo -e "${red}    --- Run Simulator...${nc}"
   rm -f /dev/shm/MySharedMemory2 /dev/shm/MySharedMemory
@@ -118,11 +117,13 @@ function drive {
 
   echo "SLAMP_QUEUE_ID=$slamp_queue_id /usr/bin/time -v $CONSUMER_BINARY &"
   SLAMP_QUEUE_ID=$slamp_queue_id /usr/bin/time -v $CONSUMER_BINARY &
+  sleep 1 # wait for it to start
   CONSUME_PID=$!
-  echo "timeout $RUN_TIMEOUT SLAMP_QUEUE_ID=$slamp_queue_id $CMD4"
+  echo "SLAMP_QUEUE_ID=$slamp_queue_id $CMD4"
   # if regression-watchdog is an executable, use it
   if [[ -x regression-watchdog ]]; then
       RUN_TIMEOUT=7200 # 2 hours
+      echo "timeout $RUN_TIMEOUT"
       SLAMP_QUEUE_ID=$slamp_queue_id eval /usr/bin/time -v regressions-watchdog $RUN_TIMEOUT slamp.time $CMD4
   else
       SLAMP_QUEUE_ID=$slamp_queue_id eval /usr/bin/time -v $CMD4
