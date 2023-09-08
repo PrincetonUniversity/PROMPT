@@ -36,11 +36,10 @@ enum UnifiedAction : char {
     Queue_p dqA, dqB;                                                          \
     dqA = segment->find<Queue>("DQ_A").first;                                  \
     dqB = segment->find<Queue>("DQ_B").first;                                  \
-    dq = new DoubleQueue_Producer(dqA, dqB);                                   \
+    init(dqA, dqB);                                                            \
   } while (0)
 
-#define PRODUCE_QUEUE_FLUSH() dq->flush();
-#define PRODUCE_QUEUE_FLUSH_AND_WAIT() dq->produce_wait();
-#define PRODUCE_QUEUE_DEFINE() DoubleQueue_Producer *dq
+#define PRODUCE_QUEUE_FLUSH() flush();
+#define PRODUCE_QUEUE_FLUSH_AND_WAIT() produce_wait();
 
 /// Additional macros

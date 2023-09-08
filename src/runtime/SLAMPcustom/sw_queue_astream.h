@@ -19,6 +19,8 @@
 #define ATTRIBUTE(x) __attribute__((x))
 // #define ATTRIBUTE(x) 
 
+#define MM_STREAM
+
 #include "inline.h"
 #include "bitcast.h"
 #ifndef CACHELINE_SIZE
@@ -261,7 +263,7 @@ struct DoubleQueue_Producer {
   void produce_32(uint32_t x) ATTRIBUTE(noinline){
 #ifdef MM_STREAM
     // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(0, 0, 0, x));
-    _mm_stream_si32((int *) &data[dq_index], x);
+    _mm_stream_si32((int *) &data[index], x);
 #else
     data[index] = x;
     // dq_data[dq_index + 1] = 0;
@@ -286,9 +288,9 @@ struct DoubleQueue_Producer {
 #ifdef MM_STREAM
     // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(z, w, y,
     // x));
-    _mm_stream_si32((int *)&dq_data[dq_index], xy);
-    _mm_stream_si32((int *)&dq_data[dq_index + 1], z);
-    _mm_stream_si64((long long *)&dq_data[dq_index + 2], w);
+    _mm_stream_si32((int *)&data[index], xy);
+    _mm_stream_si32((int *)&data[index + 1], z);
+    _mm_stream_si64((long long *)&data[index + 2], w);
 #else
     data[index] = xy;
     data[index + 1] = z;
@@ -394,3 +396,185 @@ struct DoubleQueue_Producer {
     }
   }
 };
+
+Queue_p qA, qB, qNow, qOther;
+uint64_t dq_index = 0;
+uint32_t *dq_data;
+
+
+void init(Queue_p dqA, Queue_p dqB) {
+  qA = dqA;
+  qB = dqB;
+
+  // Producer
+  qNow = dqA;
+  qOther = dqB;
+
+  dq_data = qNow->data;
+}
+
+void swap(){
+  if(qNow == qA){
+    qNow = qB;
+    qOther = qA;
+  }else{
+    qNow = qA;
+    qOther = qB;
+  }
+  dq_data = qNow->data;
+}
+
+void flush() {
+  qNow->size = dq_index;
+  qNow->ready_to_read = true;
+  qNow->ready_to_write = false;
+}
+
+void produce_wait() ATTRIBUTE(noinline){
+  flush();
+  while (!qOther->ready_to_write){
+    // spin
+    usleep(10);
+  }
+  swap();
+  qNow->ready_to_read = false;
+  dq_index = 0;
+  // total_swapped++;
+}
+
+// the packet is always 128bit, pad  with 0
+void produce_32(uint32_t x) ATTRIBUTE(noinline){
+#ifdef MM_STREAM
+  // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(0, 0, 0, x));
+  _mm_stream_si32((int *) &dq_data[dq_index], x);
+#else
+  data[index] = x;
+  // dq_data[dq_index + 1] = 0;
+  // dq_data[dq_index + 2] = 0;
+  // dq_data[dq_index + 3] = 0;
+#endif
+  dq_index += 4;
+
+  if (dq_index >= QSIZE_GUARD) [[unlikely]] {
+    produce_wait();
+  }
+}
+
+void produce_8(uint8_t x) ATTRIBUTE(always_inline) {
+  uint32_t tmp = x;
+  produce_32(tmp);
+}
+
+void produce_8_24_32_64(uint8_t x, uint32_t y, uint32_t z, uint64_t w)
+    ATTRIBUTE(noinline) {
+  uint32_t xy = (y << 8) | x;
+#ifdef MM_STREAM
+  // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(z, w, y,
+  // x));
+  _mm_stream_si32((int *)&dq_data[dq_index], xy);
+  _mm_stream_si32((int *)&dq_data[dq_index + 1], z);
+  _mm_stream_si64((long long *)&dq_data[dq_index + 2], w);
+#else
+  data[index] = xy;
+  data[index + 1] = z;
+  *((uint64_t *)&data[index + 2]) = w;
+#endif
+  dq_index += 4;
+
+  if (dq_index >= QSIZE_GUARD) [[unlikely]] {
+    produce_wait();
+  }
+}
+
+void produce_32_32(uint32_t x, uint32_t y) ATTRIBUTE(noinline){
+#ifdef MM_STREAM
+  // _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32(0, 0, y, x));
+  _mm_stream_si32((int *) &dq_data[dq_index], x);
+  _mm_stream_si32((int *) &dq_data[dq_index + 1], y);
+#else
+  data[index] = x;
+  data[index + 1] = y;
+  // data[index + 2] = 0;
+  // data[index + 3] = 0;
+#endif
+  dq_index += 4;
+
+  if (dq_index >= QSIZE_GUARD) [[unlikely]] {
+    produce_wait();
+  }
+}
+
+void produce_64_64(const uint64_t x, const uint64_t y) ATTRIBUTE(noinline){
+#ifdef MM_STREAM
+  _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi64x(y, x));
+  // _mm_stream_si64((long long *) &data[index], x);
+  // _mm_stream_si64((long long *) &data[index + 2], y);
+#else
+  *((uint64_t *) &data[index]) = x;
+  *((uint64_t *) &data[index + 2]) = y;
+#endif
+  dq_index += 4;
+
+  if (dq_index >= QSIZE_GUARD) [[unlikely]] {
+    produce_wait();
+  }
+}
+
+void produce_8_32(uint8_t x, uint32_t y) ATTRIBUTE(always_inline) {
+  uint32_t x_tmp = x;
+  produce_32_32(x_tmp, y);
+}
+
+void produce_8_64(uint8_t x, uint64_t y) ATTRIBUTE(always_inline) {
+  uint32_t x_tmp = x;
+  produce_64_64(x_tmp, y);
+}
+
+
+// static void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) {
+void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) ATTRIBUTE(noinline) {
+#ifdef MM_STREAM
+  // FIXME: set 32bit x, 32bit y, 64bit z, small endian
+  _mm_stream_si32((int *) &dq_data[dq_index], x);
+  _mm_stream_si32((int *) &dq_data[dq_index + 1], y);
+  _mm_stream_si64((long long *) &dq_data[dq_index + 2], z);
+  // _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32( z >> 32, z & 0xFFFFFFFF, y, x));
+#else
+  data[index] = x;
+  data[index+1] = y;
+  *(uint64_t*)&data[index+2] = z;
+#endif
+  dq_index += 4;
+  if (dq_index >= QSIZE_GUARD) [[unlikely]] {
+    produce_wait();
+  }
+}
+
+void produce_32_32_32(uint32_t x, uint32_t y, uint32_t z) ATTRIBUTE(noinline) {
+#ifdef MM_STREAM
+  _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(0, z, y, x));
+
+  // _mm_stream_si32((int *) &data[index], x);
+  // _mm_stream_si32((int *) &data[index+1], y);
+  // _mm_stream_si32((int *) &data[index+2], z);
+#else
+  data[index] = x;
+  data[index+1] = y;
+  data[index+2] = z;
+  data[index+3] = 0;
+#endif
+  dq_index += 4;
+  if (dq_index >= QSIZE_GUARD) [[unlikely]] {
+    produce_wait();
+  }
+}
+
+void produce_8_32_32(uint8_t x, uint32_t y, uint32_t z) ATTRIBUTE(always_inline) {
+  uint32_t x_tmp = x;
+  produce_32_32_32(x_tmp, y, z);
+}
+
+void produce_8_32_64(uint8_t x, uint32_t y, uint64_t z) ATTRIBUTE(always_inline) {
+  uint32_t x_tmp = x;
+  produce_32_32_64(x_tmp, y, z);
+}

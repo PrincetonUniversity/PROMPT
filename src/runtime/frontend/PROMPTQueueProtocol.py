@@ -41,8 +41,7 @@ class QueueProtocol:
         parameter_str += ")"
         args_str += ")"
 
-        #FIXME: ad-hoc change to dq.
-        return "%s%s dq->%s%s" % (define_str, parameter_str, function_str, args_str)
+        return "%s%s %s%s" % (define_str, parameter_str, function_str, args_str)
 
     def generateAllProducerFunctions(self, mod_events=None):
         lines = []
