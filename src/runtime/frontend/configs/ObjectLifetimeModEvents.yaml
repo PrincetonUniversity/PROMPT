@@ -3,7 +3,7 @@ module: ObjLifetimeMod
 description: "Object Lifetime Module"
 events:
   init: [loop_id, pid]
-  alloc: [size, ptr]
+  alloc: [inst_id, size, ptr]
   free: [ptr]
   loop_invoc: []
   loop_iter: []
