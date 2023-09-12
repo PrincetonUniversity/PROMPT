@@ -12,6 +12,7 @@
 
 #ifdef USE_PDG
 #include "scaf/SpeculationModules/PDGBuilder.hpp"
+#include "scaf/Utilities/PDGQueries.h"
 #endif
 
 
@@ -30,13 +31,10 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
-#include "scaf/Utilities/CallSiteFactory.h"
 #include "scaf/Utilities/GlobalCtors.h"
-#include "scaf/Utilities/InsertPrintf.h"
 #include "scaf/Utilities/InstInsertPt.h"
 #include "scaf/Utilities/Metadata.h"
 #include "scaf/Utilities/ModuleLoops.h"
-#include "scaf/Utilities/PDGQueries.h"
 
 #include <sstream>
 #include <vector>
@@ -46,6 +44,30 @@
 
 using namespace std;
 using namespace llvm;
+
+static std::map<std::string, Constant *> slemap;
+
+Constant *getStringLiteralExpression(Module &m, const std::string &str) {
+  if (slemap.count(str))
+    return slemap[str];
+
+  LLVMContext &Context = m.getContext();
+
+  Constant *array = ConstantDataArray::getString(Context, str);
+
+  GlobalVariable *strConstant =
+      new GlobalVariable(m, array->getType(), true, GlobalValue::PrivateLinkage,
+                         array, "__" + str);
+
+  Constant *zero = ConstantInt::get(Type::getInt64Ty(Context), 0);
+  Value *zeros[] = {zero, zero};
+  ArrayRef<Value *> zerosRef(zeros, zeros + 2);
+
+  // TODO: double-check passed type
+  slemap[str] = ConstantExpr::getInBoundsGetElementPtr(
+      strConstant->getType()->getPointerElementType(), strConstant, zerosRef);
+  return slemap[str];
+}
 
 namespace liberty::slamp {
 
@@ -89,42 +111,6 @@ static cl::opt<bool> IsDSWP("slamp-dswp", cl::init(false),
                                        cl::NotHidden,
                                        cl::desc("DSWP"));
 
-// whether to turn on dependence module
-static cl::opt<bool> UseDependenceModule("slamp-dependence-module", cl::init(true), cl::NotHidden, cl::desc("Use dependence module"));
-
-// whether to turn on points-to module
-static cl::opt<bool> UsePointsToModule("slamp-points-to-module", cl::init(false), cl::NotHidden, cl::desc("Use points-to module"));
-
-// constant value module
-static cl::opt<bool> UseConstantValueModule("slamp-constant-value-module", cl::init(false), cl::NotHidden, cl::desc("Use constant value module"));
-
-// linear value module
-static cl::opt<bool> UseLinearValueModule("slamp-linear-value-module", cl::init(false), cl::NotHidden, cl::desc("Use linear value module"));
-
-// constant address module
-static cl::opt<bool> UseConstantAddressModule("slamp-constant-address-module", cl::init(false), cl::NotHidden, cl::desc("Use address module"));
-
-// linear address module
- static cl::opt<bool> UseLinearAddressModule("slamp-linear-address-module", cl::init(false), cl::NotHidden, cl::desc("Use linear address module"));
-
-// trace module
-static cl::opt<bool> UseTraceModule("slamp-trace-module", cl::init(false), cl::NotHidden, cl::desc("Use trace module"));
-
-// reason module
-static cl::opt<bool> UseReasonModule("slamp-reason-module", cl::init(false), cl::NotHidden, cl::desc("Use reason module"));
-
-// // localwrite module
-// static cl::opt<bool> UseLocalWriteModule("slamp-localwrite-module", cl::init(false), cl::NotHidden, cl::desc("Use localwrite module"));
-
-// // localwrite mask (size_t)
-// static cl::opt<size_t> LocalWriteMask("slamp-localwrite-mask", cl::init(0), cl::NotHidden, cl::desc("Localwrite mask"));
-
-// // localwrite pattern (size_t)
-// static cl::opt<size_t> LocalWritePattern("slamp-localwrite-pattern", cl::init(0), cl::NotHidden, cl::desc("Localwrite pattern"));
-
-// ASSUME ONE ADDR
-static cl::opt<bool> AssumeOneAddr("slamp-assume-one-addr", cl::init(false), cl::NotHidden, cl::desc("Assume one addr"));
-
 
 static cl::opt<bool> UsePruning("slamp-pruning", cl::init(false),
                                        cl::NotHidden,
@@ -147,7 +133,6 @@ SLAMP::SLAMP() : ModulePass(ID) {}
 SLAMP::~SLAMP() = default;
 
 void SLAMP::getAnalysisUsage(AnalysisUsage &au) const {
-  // au.addRequired<StaticID>(); // use static ID (requires the bitcode to be exact the same)
   au.addRequired<ModuleLoops>();
   au.addRequired<LoopInfoWrapperPass>();
 #ifdef USE_PDG
@@ -438,38 +423,6 @@ bool SLAMP::runOnModule(Module &m) {
   //// replace external function calls to wrapper function calls
   replaceExternalFunctionCalls(m);
 
-
-  auto setGlobalModule = [&m](string name, bool value) {
-    m.getOrInsertGlobal(name, Type::getInt1Ty(m.getContext()));
-    GlobalVariable *module_var = m.getGlobalVariable(name);
-    module_var->setInitializer(ConstantInt::get(Type::getInt1Ty(m.getContext()), value));
-    module_var->setConstant(true);
-  };
-
-  auto setLocalWriteValue = [&m](string name, size_t value) {
-    m.getOrInsertGlobal(name, Type::getInt64Ty(m.getContext()));
-    GlobalVariable *module_var = m.getGlobalVariable(name);
-    module_var->setInitializer(ConstantInt::get(Type::getInt64Ty(m.getContext()), value));
-    module_var->setConstant(true);
-  };
-
-  // add a constant variable "DEPENDENCE_MODULE" and set to false
-#ifdef ITO_ENABLE
-  setGlobalModule("CONSTANT_ADDRESS_MODULE", UseConstantAddressModule);
-  setGlobalModule("CONSTANT_VALUE_MODULE", UseConstantValueModule);
-  setGlobalModule("LINEAR_ADDRESS_MODULE", UseLinearAddressModule);
-  setGlobalModule("LINEAR_VALUE_MODULE", UseLinearValueModule);
-  setGlobalModule("REASON_MODULE", UseReasonModule);
-  setGlobalModule("TRACE_MODULE", UseTraceModule);
-
-  // FIXME:
-  // setGlobalModule("LOCALWRITE_MODULE", UseLocalWriteModule);
-  setGlobalModule("DEPENDENCE_MODULE", UseDependenceModule);
-  setGlobalModule("POINTS_TO_MODULE", UsePointsToModule);
-
-  setGlobalModule("ASSUME_ONE_ADDR", AssumeOneAddr);
-#endif
-
   Function *ctor = instrumentConstructor(m);
   instrumentDestructor(m);
 
@@ -477,12 +430,9 @@ bool SLAMP::runOnModule(Module &m) {
     instrumentGlobalVars(m, ctor);
   }
 
-  //// FIXME: temporarily instrument alloca and base pointer for all cases 
-  // if (UsePointsToModule){
-    instrumentAllocas(m);
-    // instrument all base pointer creation
-    instrumentBasePointer(m, this->target_loop);
-  // }
+  instrumentAllocas(m);
+  // instrument all base pointer creation
+  instrumentBasePointer(m, this->target_loop);
 
   instrumentFunctionStartStop(m);
   instrumentMainFunction(m);
@@ -728,8 +678,6 @@ void SLAMP::replaceExternalFunctionCalls(Module &m) {
       if (cb->getCalledFunction() != func)
         continue;
 
-
-
       // FIXME: duplicated code as instrumentLoopInst
       auto id = Namer:: getInstrId(inst);
       if (id == -1) {
@@ -804,8 +752,6 @@ void SLAMP::replaceExternalFunctionCalls(Module &m) {
 /// Create a function `___SLAMP_ctor` that calls `SLAMP_init` and
 /// `SLAMP_init_global_vars` before everything (llvm.global_ctors)
 Function *SLAMP::instrumentConstructor(Module &m) {
-  // sid = &getAnalysis<StaticID>();
-
   LLVMContext &c = m.getContext();
   auto *ctor =
       cast<Function>(m.getOrInsertFunction("___SLAMP_ctor", Void).getCallee());
@@ -874,6 +820,7 @@ void SLAMP::instrumentGlobalVars(Module &m, Function *ctor) {
     // get name of the global
 
     // Value *name = getGlobalName(gv);
+    // FIXME: rename global variable to its name
     Value *name = getStringLiteralExpression(m, "hello");
     uint64_t size = td.getTypeStoreSize(ty->getElementType());
     Value *args[] = {name, castToInt64Ty(gv, pt), ConstantInt::get(I64, size)};
@@ -888,6 +835,7 @@ void SLAMP::instrumentGlobalVars(Module &m, Function *ctor) {
 
     uint64_t size = td.getTypeStoreSize(func->getType());
 
+    // FIXME: rename global variable to its name
     Value *name = getStringLiteralExpression(m, "hello");
     InstInsertPt pt = InstInsertPt::Before(entry->getTerminator());
     Value *args[] = {name, castToInt64Ty(func, pt), ConstantInt::get(I64, size)};
@@ -994,11 +942,6 @@ void SLAMP::instrumentBasePointer(Module &m, Loop* l) {
       SpecPriv::Indeterminate::findIndeterminateObjects(BB, indeterminate_pointers, indeterminate_objects);
     }
   }
-
-  // for(auto *bb: l->getBlocks())
-  // {
-    // Indeterminate::findIndeterminateObjects(*bb, indeterminate_pointers, indeterminate_objects);
-  // }
 
   for (auto &object : indeterminate_objects) {
     if (const auto *const_arg = dyn_cast<Argument>(object)) {

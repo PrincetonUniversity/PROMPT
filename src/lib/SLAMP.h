@@ -11,8 +11,6 @@
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/DataLayout.h"
 
-#include "scaf/Utilities/StaticID.h"
-
 #include <unordered_set>
 #include <set>
 
@@ -77,8 +75,6 @@ private:
   // frequently used types
 
   Type *Void, *I32, *I64, *I8Ptr;
-
-  // StaticID* sid;
 
   Function* target_fn;
   Loop*     target_loop;
