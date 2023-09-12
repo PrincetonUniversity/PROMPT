@@ -4,7 +4,6 @@
 #pragma once
 
 #include <cstdint>
-#include <iostream>
 #define DUALCORE
 
 #include <cstdint>
@@ -15,6 +14,12 @@
 #include <mutex>
 #include <condition_variable>
 #include <thread>
+
+//#define SW_DEBUG
+
+#ifdef SW_DEBUG
+#include <cstdio>
+#endif /* SW_DEBUG */
 
 #define ATTRIBUTE(x) __attribute__((x))
 // #define ATTRIBUTE(x) 
@@ -444,6 +449,9 @@ void produce_wait() ATTRIBUTE(noinline){
 
 // the packet is always 128bit, pad  with 0
 void produce_32(uint32_t x) ATTRIBUTE(noinline){
+#ifdef SW_DEBUG
+  printf("produce_32 %d\n", x);
+#endif
 #ifdef MM_STREAM
   // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(0, 0, 0, x));
   _mm_stream_si32((int *) &dq_data[dq_index], x);
@@ -467,6 +475,9 @@ void produce_8(uint8_t x) ATTRIBUTE(always_inline) {
 
 void produce_8_24_32_64(uint8_t x, uint32_t y, uint32_t z, uint64_t w)
     ATTRIBUTE(noinline) {
+#ifdef SW_DEBUG
+  printf("produce_8_24_32_64: %d %d %d %ld\n", x, y, z, w);
+#endif
   uint32_t xy = (y << 8) | x;
 #ifdef MM_STREAM
   // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(z, w, y,
@@ -487,6 +498,9 @@ void produce_8_24_32_64(uint8_t x, uint32_t y, uint32_t z, uint64_t w)
 }
 
 void produce_32_32(uint32_t x, uint32_t y) ATTRIBUTE(noinline){
+#ifdef SW_DEBUG
+  printf("produce_32_32: %u %u\n", x, y);
+#endif
 #ifdef MM_STREAM
   // _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32(0, 0, y, x));
   _mm_stream_si32((int *) &dq_data[dq_index], x);
@@ -505,6 +519,9 @@ void produce_32_32(uint32_t x, uint32_t y) ATTRIBUTE(noinline){
 }
 
 void produce_64_64(const uint64_t x, const uint64_t y) ATTRIBUTE(noinline){
+#ifdef SW_DEBUG
+  printf("produce_64_64: %lu %lu\n", x, y);
+#endif
 #ifdef MM_STREAM
   _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi64x(y, x));
   // _mm_stream_si64((long long *) &data[index], x);
@@ -533,6 +550,9 @@ void produce_8_64(uint8_t x, uint64_t y) ATTRIBUTE(always_inline) {
 
 // static void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) {
 void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) ATTRIBUTE(noinline) {
+#ifdef SW_DEBUG
+  printf("produce_32_32_64: %u %u %lu\n", x, y, z);
+#endif
 #ifdef MM_STREAM
   // FIXME: set 32bit x, 32bit y, 64bit z, small endian
   _mm_stream_si32((int *) &dq_data[dq_index], x);
@@ -551,6 +571,9 @@ void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) ATTRIBUTE(noinline) {
 }
 
 void produce_32_32_32(uint32_t x, uint32_t y, uint32_t z) ATTRIBUTE(noinline) {
+#ifdef SW_DEBUG
+  printf("produce_32_32_32 %d %d %d\n", x, y, z);
+#endif
 #ifdef MM_STREAM
   _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(0, z, y, x));
 
