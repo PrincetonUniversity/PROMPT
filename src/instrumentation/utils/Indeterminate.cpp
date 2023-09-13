@@ -3,9 +3,9 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
-#include "scaf/Utilities/CallSiteFactory.h"
+#include "CallSiteFactory.h"
 
-#include "Indeterminate.h"
+#include "utils/Indeterminate.h"
 
 namespace liberty
 {

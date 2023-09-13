@@ -2,12 +2,8 @@
 
 ### Build
 
-- Required software: NOELLE, SCAF (by default turned on in NOELLE)
-
 ```
 cd PROMPT
-export SCAF_INSTALL_DIR=${the directory where SCAF's include and lib are installed (could be the same as NOELLE_INSTALL_DIR)}
-export NOELLE_INSTALL_DIR=${the directory where NOELLE's include and lib are installed}
 export PATH=${llvm install bin directory}:$PATH
 make build # By default install to PROMPT/build
 make install # By default install to PROMPT/install

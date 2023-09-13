@@ -1,2 +1,2 @@
-add_subdirectory(lib)
+add_subdirectory(instrumentation)
 add_subdirectory(runtime)

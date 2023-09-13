@@ -15,13 +15,6 @@
 #include "scaf/Utilities/PDGQueries.h"
 #endif
 
-
-#include "SLAMP.h"
-#include "externs.h"
-#include "CastUtil.h"
-#include "Indeterminate.h"
-
-
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -31,10 +24,15 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
-#include "scaf/Utilities/GlobalCtors.h"
-#include "scaf/Utilities/InstInsertPt.h"
-#include "scaf/Utilities/Metadata.h"
-#include "scaf/Utilities/ModuleLoops.h"
+#include "utils/CastUtil.h"
+#include "utils/Indeterminate.h"
+#include "utils/GlobalCtors.h"
+#include "utils/InstInsertPt.h"
+
+#include "SLAMP.h"
+#include "Metadata.h"
+
+#include "externs.h"
 
 #include <sstream>
 #include <vector>
@@ -133,7 +131,6 @@ SLAMP::SLAMP() : ModulePass(ID) {}
 SLAMP::~SLAMP() = default;
 
 void SLAMP::getAnalysisUsage(AnalysisUsage &au) const {
-  au.addRequired<ModuleLoops>();
   au.addRequired<LoopInfoWrapperPass>();
 #ifdef USE_PDG
   au.addRequired<LoopAA>();
@@ -451,7 +448,6 @@ bool SLAMP::runOnModule(Module &m) {
 
 /// Find target function and loop baed on the options passed in
 bool SLAMP::findTarget(Module &m) {
-  auto &mloops = getAnalysis<ModuleLoops>();
   bool found = false;
 
   for (auto & fi : m) {
@@ -470,7 +466,7 @@ bool SLAMP::findTarget(Module &m) {
       if (header == nullptr)
         break;
 
-      LoopInfo &loopinfo = mloops.getAnalysis_LoopInfo(f);
+      LoopInfo &loopinfo = getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
 
       this->target_loop = loopinfo.getLoopFor(header);
 

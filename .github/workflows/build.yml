@@ -94,7 +94,7 @@ jobs:
           make -C noelle all
 
   build-prompt:
-    needs: [build-llvm-9, build-noelle]
+    needs: [build-llvm-9]
     runs-on: ubuntu-20.04
 
     steps:
@@ -110,15 +110,6 @@ jobs:
           key: ${{ needs.build-llvm-9.outputs.cache-key }}
           restore-keys: |
             ${{ needs.build-llvm-9.outputs.cache-key }}
-
-      - name: Restore cache from Noelle
-        id: cache-noelle
-        uses: actions/cache@v3
-        with:
-          path: noelle-install
-          key: ${{ needs.build-noelle.outputs.cache-key }}
-          restore-keys: |
-            ${{ needs.build-noelle.outputs.cache-key }}
 
       - name: Install system dependences
         run: |
@@ -136,15 +127,12 @@ jobs:
 
       - name: Build
         run: |
-          noelle_install=$(realpath noelle-install)
           llvm_install=$(realpath llvm-install)
           cd PROMPT
           cd src/runtime/frontend
           # TODO: this only test the Dependence Module
           python FrontendGenerator.py -m dep
           cd ../../..
-          export SCAF_INSTALL_DIR=${noelle_install}
-          export NOELLE_INSTALL_DIR=${noelle_install}
           export PATH=${llvm_install}/bin:$PATH
           export CC=clang
           export CXX=clang++

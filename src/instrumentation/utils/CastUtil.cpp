@@ -1,9 +1,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/LLVMContext.h"
 
-#include "scaf/Utilities/InstInsertPt.h"
-
-#include "CastUtil.h"
+#include "utils/CastUtil.h"
 
 using namespace llvm;
 using namespace liberty;

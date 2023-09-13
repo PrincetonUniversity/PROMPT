@@ -1,8 +1,8 @@
 #ifndef CAST_UTIL_H
 #define CAST_UTIL_H
 
-#include "scaf/Utilities/InstInsertPt.h"
 #include "llvm/IR/Instruction.h"
+#include "utils/InstInsertPt.h"
 #include <vector>
 
 namespace liberty {

@@ -5,12 +5,6 @@ BUILD_TYPE?=Release
 INSTALL_DIR?=${CURRENT_DIR}/install
 # ON or OFF
 RUNTIME_LTO?=ON
-ifndef NOELLE_INSTALL_DIR
-$(error NOELLE_INSTALL_DIR is not set)
-endif
-ifndef SCAF_INSTALL_DIR
-$(error SCAF_INSTALL_DIR is not set)
- endif
 
 all: install
 
@@ -32,8 +26,6 @@ install: build
 	cp -r scripts/* $(INSTALL_DIR)/bin
 	@echo "export RUNTIME_LTO=$(RUNTIME_LTO)" > $(INSTALL_DIR)/PROMPT.rc
 	@echo "export SLAMP_INSTALL_DIR=$(INSTALL_DIR)" >> $(INSTALL_DIR)/PROMPT.rc
-	@echo "export NOELLE_LIBS_DIR=$(NOELLE_INSTALL_DIR)/lib" >> $(INSTALL_DIR)/PROMPT.rc
-	@echo "export SCAF_LIBS_DIR=$(SCAF_INSTALL_DIR)/lib" >> $(INSTALL_DIR)/PROMPT.rc
 	@echo "export PATH=$(INSTALL_DIR)/bin:\$$PATH" >> $(INSTALL_DIR)/PROMPT.rc
 	@echo "export LD_LIBRARY_PATH=$(INSTALL_DIR)/lib:\$$LD_LIBRARY_PATH" >> $(INSTALL_DIR)/PROMPT.rc
 

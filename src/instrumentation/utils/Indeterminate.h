@@ -9,8 +9,9 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/IR/CallSite.h"
 
-#include "scaf/Utilities/FindUnderlyingObjects.h"
+#include "utils/FindUnderlyingObjects.h"
 
 namespace liberty
 {

@@ -27,38 +27,7 @@ if [ -z "$SLAMP_LIB_PATH" ]; then
     fi
 fi
 
-# EXTRA="-basicaa -globals-aa -cfl-steens-aa -tbaa -scev-aa -cfl-anders-aa -objc-arc-aa -scoped-noalias -veto -nander"
-EXTRA="-basicaa -globals-aa -cfl-steens-aa -tbaa -scev-aa -objc-arc-aa -scoped-noalias -veto -nander"
-# -load $SCAF_LIBS_DIR/libSpeculationModules.so
-SLAMP_LIBS="
- -load $NOELLE_LIBS_DIR/CallGraph.so
- -load $NOELLE_LIBS_DIR/libSvf.so
- -load $NOELLE_LIBS_DIR/libCudd.so -stat=false
- -load $SCAF_LIBS_DIR/libSCAFUtilities.so
- -load $SCAF_LIBS_DIR/libMemoryAnalysisModules.so
- -load $SCAF_LIBS_DIR/libLoopProf.so
- -load $SCAF_LIBS_DIR/libLAMPLoad.so
- -load $NOELLE_LIBS_DIR/AllocAA.so
- -load $NOELLE_LIBS_DIR/TalkDown.so
- -load $NOELLE_LIBS_DIR/CallGraph.so
- -load $NOELLE_LIBS_DIR/PDGAnalysis.so
- -load $NOELLE_LIBS_DIR/Architecture.so
- -load $NOELLE_LIBS_DIR/BasicUtilities.so
- -load $NOELLE_LIBS_DIR/Task.so
- -load $NOELLE_LIBS_DIR/DataFlow.so
- -load $NOELLE_LIBS_DIR/HotProfiler.so
- -load $NOELLE_LIBS_DIR/LoopStructure.so
- -load $NOELLE_LIBS_DIR/Invariants.so
- -load $NOELLE_LIBS_DIR/InductionVariables.so
- -load $NOELLE_LIBS_DIR/Loops.so
- -load $NOELLE_LIBS_DIR/Scheduler.so
- -load $NOELLE_LIBS_DIR/OutlinerPass.so
- -load $NOELLE_LIBS_DIR/MetadataManager.so
- -load $NOELLE_LIBS_DIR/LoopTransformer.so
- -load $NOELLE_LIBS_DIR/Noelle.so
- -load $SLAMP_LIB_PATH
- -basic-loop-aa -scev-loop-aa -auto-restrict-aa -intrinsic-aa -global-malloc-aa -pure-fun-aa -semi-local-fun-aa -phi-maze-aa -no-capture-global-aa -no-capture-src-aa -type-aa -no-escape-fields-aa -acyclic-aa -disjoint-fields-aa -field-malloc-aa -loop-variant-allocation-aa -std-in-out-err-aa -array-of-structures-aa -kill-flow-aa -callsite-depth-combinator-aa -unique-access-paths-aa $EXTRA -llvm-aa-results "
- #  -pdgbuilder
+SLAMP_LIBS="-load $SLAMP_LIB_PATH"
 
 function drive {
   # $1: .bc file
@@ -152,12 +121,6 @@ function drive {
       # combine files
       combine_localwrite.py $2 $3
   fi
-
-  # if there's file called points_to.profile, prefix it with $2-$3
-  if [[ -f points_to.profile ]]; then
-      mv points_to.profile $2-$3.points_to.profile
-  fi
-  # rm -f $SLAMP_OUTFILE $PRELINK_BC $PRELINK_OBJ $EXE
 }
 
 # $1 is the bc file
@@ -172,7 +135,8 @@ fi
 if [[ x$2 != x && x$3 != x ]]; then
     # create a new bc name with .named.bc
     NAMED_BC="`basename $1 .bc`.named.bc"
-    opt $1 -o $NAMED_BC $SLAMP_LIBS -metadata-namer
+    echo opt $1 -o $NAMED_BC $SLAMP_LIBS -prompt-metadata-namer
+    opt $1 -o $NAMED_BC $SLAMP_LIBS -prompt-metadata-namer
     drive $NAMED_BC $2 $3
 else
     # Check if both $SCAF_LIBS_DIR and $LIBERTY_LIBS_DIR are set

@@ -7,19 +7,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(AddLLVM)
 
-# All include files for CPF
-include_directories(
-  ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR}/include
-  ${CMAKE_INSTALL_PREFIX}/include ${SCAF_INSTALL_DIR}/include
-  ${NOELLE_INSTALL_DIR}/include ${NOELLE_INSTALL_DIR}/include/svf)
-
 # Programming languages to use
 enable_language(C CXX)
 
-file(GLOB SRCS "*.cpp")
-
-# Compilation flags
-add_compile_options(-DITO_ENABLE)
+file(GLOB SRCS "*.cpp" "utils/*.cpp")
 
 set_source_files_properties(${SRCS} PROPERTIES COMPILE_FLAGS
                                                "-std=c++17 -fPIC -g -Wall")
