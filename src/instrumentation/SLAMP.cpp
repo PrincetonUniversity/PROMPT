@@ -466,6 +466,7 @@ bool SLAMP::findTarget(Module &m) {
       if (header == nullptr)
         break;
 
+      // FIXME: double check this is valid
       LoopInfo &loopinfo = getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
 
       this->target_loop = loopinfo.getLoopFor(header);

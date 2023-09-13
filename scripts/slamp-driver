@@ -64,62 +64,64 @@ function drive {
 
   red='\e[0;31m'
   nc='\e[0m'
-  echo -e "${red}>>> slamp-driver Processing $2::$3${nc}"
-  echo -e "${red}    --- Generate Simulator...${nc}"
-  echo $CMD1
-  $CMD1
-  echo $CMD2
-  $CMD2
-  echo $CMD3
-  $CMD3
 
-  echo -e "${red}    --- Run Simulator...${nc}"
-  rm -f /dev/shm/MySharedMemory2 /dev/shm/MySharedMemory
-
-  # create a random number between 0 and 999
-  slamp_queue_id=$(($RANDOM%1000))
-
-  # check if /dev/shm/slamp_queue_$id exists and if so, create a new random number
-  while [ -e /dev/shm/slamp_queue_$slamp_queue_id ]; do
-      slamp_queue_id=$(($RANDOM%1000))
-  done
-
-  echo "SLAMP_QUEUE_ID=$slamp_queue_id /usr/bin/time -v $CONSUMER_BINARY &"
-  SLAMP_QUEUE_ID=$slamp_queue_id /usr/bin/time -v $CONSUMER_BINARY &
-  sleep 1 # wait for it to start
-  CONSUME_PID=$!
-  echo "SLAMP_QUEUE_ID=$slamp_queue_id $CMD4"
-  # if regression-watchdog is an executable, use it
-  if [[ -x regression-watchdog ]]; then
-      RUN_TIMEOUT=7200 # 2 hours
-      echo "timeout $RUN_TIMEOUT"
-      SLAMP_QUEUE_ID=$slamp_queue_id eval /usr/bin/time -v regressions-watchdog $RUN_TIMEOUT slamp.time $CMD4
-  else
-      SLAMP_QUEUE_ID=$slamp_queue_id eval /usr/bin/time -v $CMD4
+  # if $SKIP_BUILD is set, skip build
+  if [[ -z $SKIP_BUILD ]]; then
+      echo -e "${red}>>> slamp-driver Processing $2::$3${nc}"
+      echo -e "${red}    --- Generate Simulator...${nc}"
+      echo $CMD1
+      $CMD1
+      echo $CMD2
+      $CMD2
+      echo $CMD3
+      $CMD3
   fi
 
-  # eval regressions-watchdog $RUN_TIMEOUT slamp-smtx.time $CMD4
-  # if command fail
-  if [ $? -ne 0 ]; then
-      # print in red
-      kill -9 $CONSUME_PID
-      echo -e "${red}    --- SIMULATION FAILED${nc}"
-      echo "Timed out or other problems"
-      rm -f result.slamp.profile
-      rm -f /dev/shm/slamp_queue_$slamp_queue_id
-      exit 1
-  else
-      # sleep for 20 seconds
-      sleep 10
-      # sleep 0
-      cat deplog*.txt >> result.slamp.profile
-      rm -f deplog*.txt
-      rm -f /dev/shm/slamp_queue_$slamp_queue_id
-  fi
+  # if $SKIP_RUN is set, skip run
+  if [[ -z $SKIP_RUN ]]; then
+    echo -e "${red}    --- Run Simulator...${nc}"
+    rm -f /dev/shm/MySharedMemory2 /dev/shm/MySharedMemory
 
-  if [[ x$LOCALWRITE_THREADS != x ]]; then
-      # combine files
-      combine_localwrite.py $2 $3
+    # create a random number between 0 and 999
+    slamp_queue_id=$(($RANDOM%1000))
+
+    # check if /dev/shm/slamp_queue_$id exists and if so, create a new random number
+    while [ -e /dev/shm/slamp_queue_$slamp_queue_id ]; do
+        slamp_queue_id=$(($RANDOM%1000))
+    done
+
+    echo "SLAMP_QUEUE_ID=$slamp_queue_id /usr/bin/time -v $CONSUMER_BINARY &"
+    SLAMP_QUEUE_ID=$slamp_queue_id /usr/bin/time -v $CONSUMER_BINARY &
+    sleep 1 # wait for it to start
+    CONSUME_PID=$!
+    echo "SLAMP_QUEUE_ID=$slamp_queue_id $CMD4"
+    # if regression-watchdog is an executable, use it
+    if [ -x regression-watchdog ]; then
+        RUN_TIMEOUT=7200 # 2 hours
+        echo "timeout $RUN_TIMEOUT"
+        SLAMP_QUEUE_ID=$slamp_queue_id eval /usr/bin/time -v regressions-watchdog $RUN_TIMEOUT slamp.time $CMD4
+    else
+        SLAMP_QUEUE_ID=$slamp_queue_id eval /usr/bin/time -v $CMD4
+    fi
+
+    # eval regressions-watchdog $RUN_TIMEOUT slamp-smtx.time $CMD4
+    # if command fail
+    if [ $? -ne 0 ]; then
+        # print in red
+        kill -9 $CONSUME_PID
+        echo -e "${red}    --- SIMULATION FAILED${nc}"
+        echo "Timed out or other problems"
+        rm -f result.slamp.profile
+        rm -f /dev/shm/slamp_queue_$slamp_queue_id
+        exit 1
+    else
+        # sleep for 20 seconds
+        sleep 10
+        # sleep 0
+        cat deplog*.txt >> result.slamp.profile
+        rm -f deplog*.txt
+        rm -f /dev/shm/slamp_queue_$slamp_queue_id
+    fi
   fi
 }
 
