@@ -14,6 +14,7 @@ endif()
 
 add_library(ProfilingModules STATIC
     DependenceModule.cpp
+    WholeProgramDependenceModule.cpp
     PointsToModule.cpp
     LoadedValueModule.cpp
     ObjectLifetimeModule.cpp

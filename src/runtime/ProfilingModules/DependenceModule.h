@@ -7,14 +7,15 @@
 #include "slamp_shadow_mem.h"
 #include "slamp_timestamp.h"
 
-#include "LocalWriteModule.h"
 #include "HTContainer.h"
+#include "LocalWriteModule.h"
 
 // #define TRACK_COUNT
 // #define TRACK_MIN_DISTANCE
 
 // #define TRACK_WAW
 // #define TRACK_WAR
+// #define COLLECT_TRACE
 
 #ifdef TRACK_WAR
 #define DM_TIMESTAMP_SIZE_IN_BYTES 16
@@ -24,9 +25,7 @@
 #define DM_TIMESTAMP_SIZE_IN_BYTES_LOG2 3
 #endif
 
-// #define COLLECT_TRACE
-
-enum class DepModAction : uint32_t{
+enum class DepModAction : uint32_t {
   INIT = 0,
   LOAD,
   STORE,
@@ -59,7 +58,6 @@ private:
   unsigned dep_trace_idx = 0;
 #endif
 
-
   slamp::MemoryMap<MASK2> *smmap = nullptr;
 
 #ifdef TRACK_COUNT
@@ -78,7 +76,8 @@ private:
 public:
   DependenceModule(uint32_t mask, uint32_t pattern)
       : LocalWriteModule(mask, pattern) {
-    smmap = new slamp::MemoryMap<MASK2>(mask, pattern, DM_TIMESTAMP_SIZE_IN_BYTES);
+    smmap =
+        new slamp::MemoryMap<MASK2>(mask, pattern, DM_TIMESTAMP_SIZE_IN_BYTES);
 #ifdef COLLECT_TRACE
     dep_trace.reserve(dep_trace_size + 10); // 10M
 #endif
