@@ -1,9 +1,9 @@
 # Generate a protocol for the PROMPTQueue
 # It specifies the code for producing and consuming events
 
+from typing import Dict, List
+
 class QueueProtocol:
-    api = {}
-    custom_fields = []
     queue_object_name = "queue"
 
     # Constructor
