@@ -119,6 +119,11 @@ void SLAMP_init(uint32_t fn_id, uint32_t loop_id) {
   // TURN ON HOOKS
   hook_enabled = true;
 
+  // whole program profiling
+  if (loop_id == 0) {
+    on_profiling = true;
+  }
+
   // flush
   PRODUCE_QUEUE_FLUSH_AND_WAIT();
 }
@@ -196,6 +201,7 @@ void SLAMP_report_base_pointer_inst(uint32_t instId, void *ptr) {
   PRODUCE_POINTS_TO_INST(instId, (uint64_t)ptr);
 }
 
+// TODO: this should be optional
 void SLAMP_ext_push(const uint32_t instr) ATTRIBUTE(always_inline) {
   ext_fn_inst_id = instr;
 }

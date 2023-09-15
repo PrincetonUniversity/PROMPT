@@ -3,6 +3,7 @@
 // Single Loop Aware Memory Profiler.
 //
 
+#include "llvm/IR/Instructions.h"
 #define DEBUG_TYPE "SLAMP"
 
 #include "llvm/IR/LLVMContext.h"
@@ -78,10 +79,19 @@ static RegisterPass<SLAMP> RP("slamp-insts",
                               "Insert instrumentation for SLAMP profiling",
                               false, false);
 
+// whether to enable targeting a specific loop
+static cl::opt<bool> TargetLoopEnabled("slamp-target-loop-enabled",
+                                       cl::init(true), cl::NotHidden,
+                                       cl::desc("Target Loop Enabled"));
+
 // passed in based on the target loop info
 static cl::opt<std::string> TargetFcn("slamp-target-fn", cl::init(""),
                                       cl::NotHidden,
                                       cl::desc("Target Function"));
+
+// passed in based on the target loop info
+static cl::opt<std::string> TargetLoop("slamp-target-loop", cl::init(""),
+                                       cl::NotHidden, cl::desc("Target Loop"));
 
 // top priority; not compatible with the rest
 static cl::list<uint32_t> ExplicitInsts("slamp-explicit-insts",
@@ -119,9 +129,6 @@ static cl::opt<uint32_t> TargetInst("slamp-target-inst", cl::init(0),
                                        cl::NotHidden,
                                        cl::desc("Target Instruction"));
 
-// passed in based on the target loop info
-static cl::opt<std::string> TargetLoop("slamp-target-loop", cl::init(""),
-                                       cl::NotHidden, cl::desc("Target Loop"));
 
 cl::opt<std::string> outfile("slamp-outfile", cl::init("result.slamp.profile"),
                              cl::NotHidden, cl::desc("Output file name"));
@@ -209,11 +216,12 @@ bool SLAMP::runOnModule(Module &m) {
   I8Ptr = Type::getInt8PtrTy(ctxt);
 
   // find target function/loop
-  if (!findTarget(m))
+  if (TargetLoopEnabled && !findTarget(m))
     return false;
 
+  // TODO: might want to check the whole program if no target loop is found
   // check if target may call setjmp/longjmp
-  if (mayCallSetjmpLongjmp(this->target_loop)) {
+  if (TargetLoopEnabled && mayCallSetjmpLongjmp(this->target_loop)) {
     LLVM_DEBUG(errs() << "Warning! target loop may call setjmp/longjmp\n");
     // return false;
   }
@@ -429,15 +437,21 @@ bool SLAMP::runOnModule(Module &m) {
 
   instrumentAllocas(m);
   // instrument all base pointer creation
-  instrumentBasePointer(m, this->target_loop);
+  instrumentBasePointer(m);
 
   instrumentFunctionStartStop(m);
   instrumentMainFunction(m);
 
-  instrumentLoopStartStop(m, this->target_loop);
-  instrumentLoopStartStopForAll(m);
+  if (TargetLoopEnabled) {
+    instrumentLoopStartStop(m, this->target_loop);
+  }
 
-  instrumentInstructions(m, this->target_loop);
+  instrumentLoopStartStopForAll(m);
+  if (TargetLoopEnabled) {
+    instrumentInstructions(m, this->target_loop);
+  } else {
+    instrumentInstructions(m);
+  }
 
   // insert implementations for runtime wrapper functions, which calls the
   // binary standard function
@@ -763,10 +777,15 @@ Function *SLAMP::instrumentConstructor(Module &m) {
   auto *init = cast<Function>(
       m.getOrInsertFunction("SLAMP_init", Void, I32, I32).getCallee());
 
-  Value *args[] = {
-      ConstantInt::get(I32, Namer::getFuncId(this->target_fn)),
-      ConstantInt::get(I32, Namer::getBlkId(this->target_loop->getHeader()))};
-  CallInst::Create(init, args, "", entry->getTerminator());
+  if (TargetLoopEnabled) {
+    Value *args[] = {
+        ConstantInt::get(I32, Namer::getFuncId(this->target_fn)),
+        ConstantInt::get(I32, Namer::getBlkId(this->target_loop->getHeader()))};
+    CallInst::Create(init, args, "", entry->getTerminator());
+  } else {
+    Value *args[] = {ConstantInt::get(I32, 0), ConstantInt::get(I32, 0)};
+    CallInst::Create(init, args, "", entry->getTerminator());
+  }
 
   return ctor;
 }
@@ -920,7 +939,7 @@ void SLAMP::reportEndOfAllocaLifetime(AllocaInst *inst, Instruction *end, bool e
 /// 1. find the base pointer
 /// 2. Go to the creation time of the pointer
 /// 3. Insert a call to SLAMP_report_base_pointer(instruction, address)
-void SLAMP::instrumentBasePointer(Module &m, Loop* l) {
+void SLAMP::instrumentBasePointer(Module &m) {
 
   const DataLayout &DL = m.getDataLayout();
 
@@ -1413,9 +1432,11 @@ void SLAMP::instrumentInstructions(Module &m, Loop *loop) {
   // collect loop instructions
   set<Instruction *> loopinsts;
 
-  for (auto &bb : loop->getBlocks())
-    for (auto &ii : *bb)
-      loopinsts.insert(&ii);
+  if (TargetLoopEnabled) {
+    for (auto &bb : loop->getBlocks())
+      for (auto &ii : *bb)
+        loopinsts.insert(&ii);
+  }
 
   // go over all instructions in the module
   // - change some intrinsics functions
@@ -1437,16 +1458,16 @@ void SLAMP::instrumentInstructions(Module &m, Loop *loop) {
 
       if (auto *mi = dyn_cast<MemIntrinsic>(&inst)) {
         instrumentMemIntrinsics(m, mi);
-      } else if (loopinsts.find(&inst) != loopinsts.end()) {
-        auto id = Namer::getInstrId(&inst);
-        if (id == -1)
-          continue; // it's an instrumented instruction, skip
+        continue;
+      }
+      auto id = Namer::getInstrId(&inst);
+      if (id == -1)
+        continue; // it's an instrumented instruction, skip
+
+      // if not target loop or found in loopinsts
+      if (!TargetLoopEnabled || loopinsts.find(&inst) != loopinsts.end()) {
         instrumentLoopInst(m, &inst, id);
       } else {
-        // instrumentExtInst(m, &inst, sid.getFuncLocalIDWithInst(&*fi, &inst));
-        auto id = Namer::getInstrId(&inst);
-        if (id == -1)
-          continue; // it's an instrumented instruction, skip
         instrumentExtInst(m, &inst, id);
       }
     }
@@ -1606,8 +1627,9 @@ void SLAMP::instrumentLoopInst(Module &m, Instruction *inst, uint32_t id) {
     return;
   }
   else {
-    LLVM_DEBUG(if (inst->mayReadOrWriteMemory()) errs()
-                   << "SLAMP: instrument " << *inst << "\n";);
+    LLVM_DEBUG(if (inst->mayReadOrWriteMemory()) {
+      errs() << "SLAMP: instrument " << *inst << "\n";
+    });
   }
 
   const DataLayout &DL = m.getDataLayout();
@@ -1704,6 +1726,8 @@ void SLAMP::instrumentLoopInst(Module &m, Instruction *inst, uint32_t id) {
     }
     pt << updateDebugInfo(CallInst::Create(sf[index], args), si, m);
   } else if (auto *ci = dyn_cast<CallBase>(inst)) {
+    // TODO: this whole "SLAMP_push" and pop are not used now
+
     // if is LLVM intrinsics
     auto func = ci->getCalledFunction();
     // if indirect call, need to protect

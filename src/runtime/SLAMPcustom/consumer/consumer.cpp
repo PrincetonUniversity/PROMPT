@@ -11,6 +11,7 @@
 #include "ProfilingModules/PointsToModule.h"
 #include "ProfilingModules/LoadedValueModule.h"
 #include "ProfilingModules/ObjectLifetimeModule.h"
+#include "ProfilingModules/WholeProgramDependenceModule.h"
 #include "sw_queue_astream.h"
 
 #define ATTRIBUTE(x) __attribute__((x))
@@ -52,13 +53,14 @@ enum AvailableModules {
   POINTS_TO_MODULE = 1,
   LOADED_VALUE_MODULE = 2,
   OBJECT_LIFETIME_MODULE = 3,
-  NUM_MODULES = 4
+  WHOLE_PROGRAM_DEPENDENCE_MODULE = 4,
+  NUM_MODULES = 5
 };
 
 using Action = UnifiedAction;
-constexpr AvailableModules MODULE = DEPENDENCE_MODULE;
+constexpr AvailableModules MODULE = WHOLE_PROGRAM_DEPENDENCE_MODULE;
 // set the thread count
-constexpr unsigned THREAD_COUNT = 8;
+constexpr unsigned THREAD_COUNT = 1;
 
 #ifdef COLLECT_TRACE_EVENT
 #include <xmmintrin.h>
@@ -598,6 +600,175 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
   }
 }
 
+void consume_loop_whole_program_dep(DoubleQueue &dq,
+                                    WholeProgramDependenceModule &depMod)
+    ATTRIBUTE(noinline) {
+  uint64_t rdtsc_start = 0;
+  uint64_t counter = 0;
+  uint32_t loop_id;
+
+  // measure time with lambda action
+  auto measure_time = [](uint64_t &time, auto action) {
+    // measure time with rdtsc
+    if (MEASURE_TIME) {
+      uint64_t start = rdtsc();
+      action();
+      uint64_t end = rdtsc();
+      time += end - start;
+    }
+    else {
+      action();
+    }
+  };
+
+  bool finished = false;
+  while (true) {
+    dq.check();
+    uint32_t v;
+    v = dq.consumePacket();
+    counter++;
+    auto action = static_cast<Action>(v);
+    switch (action) {
+    case Action::INIT: {
+      uint32_t pid;
+      // loop_id = (uint32_t)dq.consume();
+      // pid = (uint32_t)dq.consume();
+      dq.unpack_32_32(loop_id, pid);
+      rdtsc_start = rdtsc();
+
+      if (DEBUG) {
+        std::cout << "INIT: " << loop_id << " " << pid << std::endl;
+      }
+      if (ACTION) {
+        depMod.init(loop_id, pid);
+      }
+      break;
+    };
+    case Action::LOAD: {
+      uint32_t instr;
+      uint64_t addr;
+      // uint32_t bare_instr;
+
+      dq.unpack_32_64(instr, addr);
+
+      if (DEBUG) {
+        std::cout << "LOAD: " << instr << " " << addr // << " " << bare_instr
+                  << std::endl;
+      }
+      if (ACTION) {
+        measure_time(load_time,
+                     [&]() { depMod.load(instr, addr, instr); });
+                     // [&]() { depMod.load(instr, addr, bare_instr, value); });
+      }
+
+      break;
+    };
+    case Action::STORE: {
+      uint32_t instr;
+      // uint32_t bare_instr;
+      uint64_t addr;
+      dq.unpack_32_64(instr, addr);
+
+      if (DEBUG) {
+        std::cout << "STORE: " << instr << " " << addr // << " " << bare_instr
+                  << std::endl;
+      }
+      if (ACTION) {
+        measure_time(store_time,
+                     [&]() { depMod.store(instr, instr, addr); });
+                     // [&]() { depMod.store(instr, bare_instr, addr); });
+      }
+      break;
+    };
+    case Action::ALLOC: {
+      uint64_t addr;
+      uint32_t size;
+      dq.unpack_32_64(size, addr);
+
+      if (DEBUG) {
+        std::cout << "ALLOC: " << addr << " " << size << std::endl;
+      }
+      if (ACTION) {
+        measure_time(alloc_time, [&]() {
+          depMod.allocate(reinterpret_cast<void *>(addr), size);
+        });
+      }
+      break;
+    };
+    case Action::LOOP_ENTRY: {
+      uint32_t loop_id;
+      dq.unpack_32(loop_id);
+      if (DEBUG) {
+        std::cout << "LOOP_ENTRY: " << loop_id << std::endl;
+      }
+      if (ACTION) {
+        depMod.loop_entry(loop_id);
+      }
+      break;
+    };
+    case Action::LOOP_ITER: {
+      if (DEBUG) {
+        std::cout << "LOOP_ITER" << std::endl;
+      }
+      if (ACTION) {
+        depMod.loop_iter();
+      }
+      break;
+    };
+    case Action::LOOP_EXIT: {
+      uint32_t loop_id;
+      dq.unpack_32(loop_id);
+      depMod.loop_exit(loop_id);
+      break;
+    }
+    case Action::FINISHED: {
+
+      uint64_t rdtsc_end = rdtsc();
+      // total cycles
+      uint64_t total_cycles = rdtsc_end - rdtsc_start;
+      std::cout << "Finished loop: " << loop_id << " after " << counter
+                << " events" << std::endl;
+      // print time in seconds
+      std::cout << "Total time: " << total_cycles / 2.6e9 << " s" << std::endl;
+      if (MEASURE_TIME) {
+        std::cout << "Load time: " << load_time / 2.6e9 << " s" << std::endl;
+        std::cout << "Store time: " << store_time / 2.6e9 << " s" << std::endl;
+        std::cout << "Alloc time: " << alloc_time / 2.6e9 << " s" << std::endl;
+      }
+      finished = true;
+
+      break;
+    };
+    default:
+      std::cout << "Unknown action: " << (uint64_t)v << std::endl;
+
+      std::cout << "Is ready to read?:" << dq.qNow->ready_to_read << " "
+                << "Is ready to write?:" << dq.qNow->ready_to_write << std::endl;
+      std::cout << "Index: " << dq.index << " Size:" << dq.qNow->size << std::endl;
+
+      for (int i = 0; i < 101; i++) {
+        std::cout << dq.qNow->data[dq.index - 100 + i] << " ";
+      }
+      exit(-1);
+    }
+
+    // if (counter % 100'000'000 == 0) {
+      // std::cout << "Processed " << counter / 1'000'000 << "M events" << std::endl;
+    // }
+    if (finished) {
+      break;
+    }
+  }
+
+#ifdef COLLECT_TRACE_EVENT
+  // dump the event trace to a binary file
+  std::ofstream event_trace_file("event_trace.bin", std::ios::binary);
+  event_trace_file.write((char *)event_trace.data(),
+                         event_trace.size() * sizeof(__m128i));
+  event_trace_file.close();
+#endif
+}
+
 void consume_loop(DoubleQueue &dq, DependenceModule &depMod) ATTRIBUTE(noinline) {
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
@@ -970,6 +1141,44 @@ int main(int argc, char** argv) {
       for (unsigned i = 0; i < THREAD_COUNT; i++) {
         threads.emplace_back(std::thread(
             [&](unsigned id) { consume_loop(*dqs[id], *depMods[id]); }, i));
+      }
+
+      for (auto &t : threads) {
+        t.join();
+      }
+
+      for (unsigned i = 0; i < THREAD_COUNT; i++) {
+        if (i != 0) {
+          depMods[0]->merge_dep(*depMods[i]);
+        }
+      }
+
+      depMods[0]->fini("deplog.txt");
+    }
+  }
+
+  if (MODULE == WHOLE_PROGRAM_DEPENDENCE_MODULE) {
+    WholeProgramDependenceModule *depMods[THREAD_COUNT];
+
+    for (unsigned i = 0; i < THREAD_COUNT; i++) {
+      dqs[i] = new DoubleQueue(dqA, dqB, true, running_threads, m, cv);
+      depMods[i] = new WholeProgramDependenceModule(MASK, i);
+    }
+
+    if (THREAD_COUNT == 1) {
+      std::cout << "Running in main thread" << std::endl;
+      // single threaded, easy to debug
+      consume_loop_whole_program_dep(*dqs[0], *depMods[0]);
+
+      depMods[0]->fini("deplog.txt");
+    } else {
+      std::cout << "Running in " << THREAD_COUNT << " threads" << std::endl;
+      for (unsigned i = 0; i < THREAD_COUNT; i++) {
+        threads.emplace_back(
+            [&](unsigned id) {
+              consume_loop_whole_program_dep(*dqs[id], *depMods[id]);
+            },
+            i);
       }
 
       for (auto &t : threads) {

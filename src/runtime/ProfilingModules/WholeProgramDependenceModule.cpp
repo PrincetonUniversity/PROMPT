@@ -8,9 +8,14 @@
 #include <iomanip>
 
 #include "WholeProgramDependenceModule.h"
-#include "slamp_logger.h"
 #include "slamp_shadow_mem.h"
 #include "slamp_timestamp.h"
+#include "MemoryProfile.h"
+#include "Profile.h"
+#include "LoopHierarchy.h"
+
+using namespace Profiling;
+using namespace Loop;
 
 #define SIZE_8M  0x800000
 
@@ -35,6 +40,13 @@ using lamp_stats_t = struct _lamp_stats_t {
   uint32_t nest_depth;
 };
 
+
+static const uint64_t MAX_DEP_DIST = 2;
+
+using DependenceSets = vector<DependenceSet>;
+using Loops =
+    LoopHierarchy<DependenceSets, Loop::DEFAULT_LOOP_DEPTH, MAX_DEP_DIST>;
+using LoopInfoType = Loops::LoopInfoType;
 using MemoryProfilerType = MemoryProfiler<MAX_DEP_DIST>;
 
 static lamp_stats_t lamp_stats;
@@ -77,32 +89,29 @@ static LoopInfoType &fillInDependence(const timestamp_t value,
 // init: setup the shadow memory
 void WholeProgramDependenceModule::init(uint32_t loop_id, uint32_t pid) {
   // FIXME: implement init with number of loops and instructions
-  uint32_t num_instrs = 4000;
-  uint32_t num_loops = 275;
+  uint32_t num_instrs = 20000;
+  uint32_t num_loops = 5000;
 
   loop_hierarchy = new Loops();
   memoryProfiler = new MemoryProfilerType(num_instrs);
-
-  LoopInfoType &loopInfo = loop_hierarchy->getCurrentLoop();
-  DependenceSets dependenceSets(MemoryProfilerType::MAX_TRACKED_DISTANCE);
+  iterationcount = (uint64_t *)calloc(giNumLoops, sizeof(uint64_t));
 
   loop_hierarchy->loopIteration(0, iterationcount);
 
-  loopInfo.setItem(dependenceSets);
-
   time_stamp = 1;
-
   giNumLoops = num_loops + 1;
-  iterationcount = (uint64_t *)calloc(giNumLoops, sizeof(uint64_t));
+
+  LoopInfoType &loopInfo = loop_hierarchy->getCurrentLoop();
+  DependenceSets dependenceSets(MemoryProfilerType::MAX_TRACKED_DISTANCE);
+  loopInfo.setItem(dependenceSets);
 
   smmap->init_stack(SIZE_8M, pid);
 }
 
 // static uint64_t log_time = 0;
 void WholeProgramDependenceModule::fini(const char *filename) {
-  // FIXME: implement fini
 
-  auto lamp_out = new ofstream("result.lamp.profile");
+  auto lamp_out = new ofstream(filename);
 
   // Print out Loop Iteration Counts
   for (unsigned i = 0; i < giNumLoops; i++) {
@@ -125,8 +134,7 @@ void WholeProgramDependenceModule::allocate(void *addr, uint64_t size) {
   smmap->allocate(addr, size);
 }
 
-static void log(const timestamp_t ts, const uint32_t dst_inst,
-                const uint32_t context) {
+static void log(const timestamp_t ts, const uint32_t dst_inst) {
   Dependence dep(dst_inst);
   LoopInfoType &loopInfo = fillInDependence(ts, dep);
   dep.dist = MemoryProfilerType::trackedDistance(dep.dist);
@@ -143,14 +151,14 @@ static void log(const timestamp_t ts, const uint32_t dst_inst,
 void WholeProgramDependenceModule::load(uint32_t instr, const uint64_t addr,
                                         const uint32_t bare_instr) {
   local_write(addr, [&]() {
+    lamp_stats.dyn_loads++;
     TS *s = (TS *)GET_SHADOW(addr, DM_TIMESTAMP_SIZE_IN_BYTES_LOG2);
 
     timestamp_ts_u ts;
     ts.ts = s[0];
 
-    // FIXME: fix the type of the timestamp here
     if (ts.ts != 0) {
-      log(ts.timestamp, instr, context);
+      log(ts.timestamp, instr);
     }
   });
 }
@@ -159,26 +167,20 @@ void WholeProgramDependenceModule::store(uint32_t instr, uint32_t bare_instr,
                                          const uint64_t addr) {
   local_write(addr, [&]() {
     // store_count++;
+    lamp_stats.dyn_stores++;
     TS *shadow_addr = (TS *)GET_SHADOW(addr, DM_TIMESTAMP_SIZE_IN_BYTES_LOG2);
-
-    if (context != 0) {
-      instr = context;
-    }
 
     timestamp_ts_u ts;
     ts.timestamp.instr = instr;
     ts.timestamp.timestamp = time_stamp;
 
-    // FIXME: Replace it with actual timestamp
     shadow_addr[0] = ts.ts;
   });
 }
 
-void WholeProgramDependenceModule::loop_invoc(uint32_t loop_id) {
-  // FIXME: takes the ID
+void WholeProgramDependenceModule::loop_entry(uint32_t loop_id) {
   loop_hierarchy->enterLoop(loop_id, time_stamp);
   initializeSets();
-
 }
 
 void WholeProgramDependenceModule::loop_iter() {
@@ -188,7 +190,6 @@ void WholeProgramDependenceModule::loop_iter() {
 }
 
 void WholeProgramDependenceModule::loop_exit(uint32_t loop_id) {
-  // FIXME: takes the ID
   loop_hierarchy->exitLoop(loop_id);
 }
 

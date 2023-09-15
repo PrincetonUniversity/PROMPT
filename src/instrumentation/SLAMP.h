@@ -47,7 +47,7 @@ private:
   void instrumentDestructor(Module& m);
   void instrumentGlobalVars(Module& m, Function* ctor);
   void instrumentAllocas(Module& m);
-  void instrumentBasePointer(Module &m, Loop *l);
+  void instrumentBasePointer(Module &m);
 
   // functions used in instrumentAllocas
   void findLifetimeMarkers(Value* i, set<const Value*>& already, std::vector<Instruction*>& starts, std::vector<Instruction*>& ends);
@@ -60,7 +60,7 @@ private:
   void instrumentLoopStartStopForAll(Module &m);
   void instrumentFunctionStartStop(Module&m);
   void instrumentLoopStartStop(Module&m, Loop* l);
-  void instrumentInstructions(Module& m, Loop* l);
+  void instrumentInstructions(Module& m, Loop* l=nullptr);
 
   void instrumentMainFunction(Module& m);
 
