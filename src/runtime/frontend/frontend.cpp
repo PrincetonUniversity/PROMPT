@@ -210,34 +210,34 @@ void SLAMP_ext_push(const uint32_t instr) ATTRIBUTE(always_inline) {
 void SLAMP_ext_pop() ATTRIBUTE(always_inline) { ext_fn_inst_id = 0; }
 
 void SLAMP_load(const uint32_t instr, const uint64_t addr,
-                const uint32_t bare_instr, uint64_t value)
+                const uint32_t bare_instr, uint64_t value, const uint32_t size)
     ATTRIBUTE(always_inline) {
   if (on_profiling) {
-    PRODUCE_LOAD(instr, addr, value);
+    PRODUCE_LOAD(size, instr, addr, value);
   }
 }
 
 void SLAMP_load1(uint32_t instr, const uint64_t addr, const uint32_t bare_instr,
                  uint64_t value) {
-  SLAMP_load(instr, addr, bare_instr, value);
+  SLAMP_load(instr, addr, bare_instr, value, 1);
 }
 void SLAMP_load2(uint32_t instr, const uint64_t addr, const uint32_t bare_instr,
                  uint64_t value) {
-  SLAMP_load(instr, addr, bare_instr, value);
+  SLAMP_load(instr, addr, bare_instr, value, 2);
 }
 void SLAMP_load4(uint32_t instr, const uint64_t addr, const uint32_t bare_instr,
                  uint64_t value) {
-  SLAMP_load(instr, addr, bare_instr, value);
+  SLAMP_load(instr, addr, bare_instr, value,4);
 }
 
 void SLAMP_load8(uint32_t instr, const uint64_t addr, const uint32_t bare_instr,
                  uint64_t value) {
-  SLAMP_load(instr, addr, bare_instr, value);
+  SLAMP_load(instr, addr, bare_instr, value, 8);
 }
 
 void SLAMP_loadn(uint32_t instr, const uint64_t addr, const uint32_t bare_instr,
                  size_t n) {
-  SLAMP_load(instr, addr, bare_instr, 0);
+  SLAMP_load(instr, addr, bare_instr, 0, n);
 }
 
 void SLAMP_load1_ext(const uint64_t addr, const uint32_t bare_instr,
@@ -261,27 +261,28 @@ void SLAMP_loadn_ext(const uint64_t addr, const uint32_t bare_instr, size_t n) {
 }
 
 void SLAMP_store(const uint32_t instr, const uint64_t addr,
-                 const uint32_t bare_instr) ATTRIBUTE(always_inline) {
+                 const uint32_t bare_instr, const uint32_t size)
+    ATTRIBUTE(always_inline) {
   if (on_profiling) {
-    PRODUCE_STORE(instr, addr);
+    PRODUCE_STORE(size, instr, addr);
   }
 }
 
 void SLAMP_store1(uint32_t instr, const uint64_t addr) {
-  SLAMP_store(instr, addr, instr);
+  SLAMP_store(instr, addr, instr, 1);
 }
 
 void SLAMP_store2(uint32_t instr, const uint64_t addr) {
-  SLAMP_store(instr, addr, instr);
+  SLAMP_store(instr, addr, instr, 2);
 }
 void SLAMP_store4(uint32_t instr, const uint64_t addr) {
-  SLAMP_store(instr, addr, instr);
+  SLAMP_store(instr, addr, instr, 4);
 }
 void SLAMP_store8(uint32_t instr, const uint64_t addr) {
-  SLAMP_store(instr, addr, instr);
+  SLAMP_store(instr, addr, instr, 8);
 }
 void SLAMP_storen(uint32_t instr, const uint64_t addr, size_t n) {
-  SLAMP_store(instr, addr, instr);
+  SLAMP_store(instr, addr, instr, n);
 }
 
 void SLAMP_store1_ext(const uint64_t addr, const uint32_t bare_inst) {

@@ -3,8 +3,8 @@ module: DepMod
 description: "Dependence module"
 events:
   init: [loop_id, pid]
-  load: [instr, addr]
-  store: [instr, addr]
+  load: [size, instr, addr]
+  store: [size, instr, addr]
   alloc: [size, ptr]
   loop_entry: [loop_id]
   loop_iter_ctx: []

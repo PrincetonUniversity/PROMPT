@@ -128,32 +128,45 @@ void WholeProgramDependenceModule::log(const timestamp_t ts,
 }
 
 void WholeProgramDependenceModule::load(uint32_t instr, const uint64_t addr,
-                                        const uint32_t bare_instr) {
+                                        const uint32_t bare_instr,
+                                        const uint32_t size) {
   local_write(addr, [&]() {
     lamp_stats.dyn_loads++;
     TS *s = (TS *)GET_SHADOW(addr, DM_TIMESTAMP_SIZE_IN_BYTES_LOG2);
 
     timestamp_ts_u ts;
-    ts.ts = s[0];
+    TS last_ts = 0;
 
-    if (ts.ts != 0) {
-      log(ts.timestamp, instr);
+    for (uint32_t i = 0; i < size; i++) {
+      if (s[i] != last_ts) {
+        ts.ts = s[i];
+        log(ts.timestamp, instr);
+        last_ts = s[i];
+      }
     }
+    // if (ts.ts != 0) {
+    //   log(ts.timestamp, instr);
+    // }
   });
 }
 
 void WholeProgramDependenceModule::store(uint32_t instr, uint32_t bare_instr,
-                                         const uint64_t addr) {
+                                         const uint64_t addr,
+                                         const uint32_t size) {
   local_write(addr, [&]() {
     // store_count++;
     lamp_stats.dyn_stores++;
     TS *shadow_addr = (TS *)GET_SHADOW(addr, DM_TIMESTAMP_SIZE_IN_BYTES_LOG2);
 
+
     timestamp_ts_u ts;
     ts.timestamp.instr = instr;
     ts.timestamp.timestamp = time_stamp;
 
-    shadow_addr[0] = ts.ts;
+    for (uint32_t i = 0; i < size; i++) {
+      shadow_addr[i] = ts.ts;
+    }
+    // shadow_addr[0] = ts.ts;
   });
 }
 

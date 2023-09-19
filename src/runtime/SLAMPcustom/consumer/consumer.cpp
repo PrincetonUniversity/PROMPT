@@ -23,7 +23,7 @@ static inline uint64_t rdtsc() {
   return (d << 32) | a;
 }
 
-#define DEBUG 0
+#define CONSUME_DEBUG 0
 #define ACTION 1
 #define MEASURE_TIME 0
 // #define COLLECT_TRACE_EVENT
@@ -114,7 +114,7 @@ void consume_loop_lv(DoubleQueue &dq, LoadedValueModule &lvMod) ATTRIBUTE(noinli
       dq.unpack_32_32(loop_id, pid);
       rdtsc_start = rdtsc();
 
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "INIT: " << loop_id << " " << pid << std::endl;
       }
       if (ACTION) {
@@ -237,7 +237,7 @@ void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod) ATTRIBUTE(noi
       dq.unpack_32_32(loop_id, pid);
       rdtsc_start = rdtsc();
 
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "INIT: " << loop_id << " " << pid << std::endl;
       }
       if (ACTION) {
@@ -251,7 +251,7 @@ void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod) ATTRIBUTE(noi
       uint32_t size;
       dq.unpack_24_32_64(instr, size, addr);
 
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "ALLOC: " << addr << " " << size << std::endl;
       }
       if (ACTION) {
@@ -265,7 +265,7 @@ void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod) ATTRIBUTE(noi
       uint64_t addr;
       dq.unpack_64(addr);
 
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "FREE: " << addr << std::endl;
       }
       if (ACTION) {
@@ -275,7 +275,7 @@ void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod) ATTRIBUTE(noi
       break;
     };
     case Action::LOOP_INVOC: {
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "LOOP_INVOC" << std::endl;
       }
 
@@ -285,7 +285,7 @@ void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod) ATTRIBUTE(noi
       break;
     };
     case Action::LOOP_ITER: {
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "LOOP_ITER" << std::endl;
       }
       if (ACTION) {
@@ -294,7 +294,7 @@ void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod) ATTRIBUTE(noi
       break;
     };
     case Action::LOOP_EXIT: {
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "LOOP_EXIT " << std::endl;
       }
       if (ACTION) {
@@ -305,7 +305,7 @@ void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod) ATTRIBUTE(noi
     case Action::FUNC_ENTRY: {
       uint32_t func_id;
       dq.unpack_32(func_id);
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "FUNC_ENTRY: " << func_id << std::endl;
       }
       if (ACTION) {
@@ -316,7 +316,7 @@ void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod) ATTRIBUTE(noi
     case Action::FUNC_EXIT: {
       uint32_t func_id;
       dq.unpack_32(func_id);
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "FUNC_EXIT: " << func_id << std::endl;
       }
       if (ACTION) {
@@ -416,7 +416,7 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
       dq.unpack_32_32(loop_id, pid);
       rdtsc_start = rdtsc();
 
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "INIT: " << loop_id << " " << pid << std::endl;
       }
       if (ACTION) {
@@ -430,7 +430,7 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
       uint32_t size;
       dq.unpack_24_32_64(instr, size, addr);
 
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "ALLOC: " << addr << " " << size << std::endl;
       }
       if (ACTION) {
@@ -444,7 +444,7 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
       uint64_t addr;
       dq.unpack_64(addr);
 
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "FREE: " << addr << std::endl;
       }
       if (ACTION) {
@@ -454,7 +454,7 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
       break;
     };
     case Action::LOOP_INVOC: {
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "LOOP_INVOC" << std::endl;
       }
 
@@ -464,7 +464,7 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
       break;
     };
     case Action::LOOP_ITER: {
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "LOOP_ITER" << std::endl;
       }
       if (ACTION) {
@@ -475,7 +475,7 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
     case Action::LOOP_ENTRY: {
       uint32_t loop_id;
       dq.unpack_32(loop_id);
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "LOOP_ENTRY: " << loop_id << std::endl;
       }
       if (ACTION) {
@@ -486,7 +486,7 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
     case Action::LOOP_EXIT: {
       uint32_t loop_id;
       dq.unpack_32(loop_id);
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "LOOP_EXIT: " << loop_id << std::endl;
       }
       if (ACTION) {
@@ -497,7 +497,7 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
     case Action::FUNC_ENTRY: {
       uint32_t func_id;
       dq.unpack_32(func_id);
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "FUNC_ENTRY: " << func_id << std::endl;
       }
       if (ACTION) {
@@ -508,7 +508,7 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
     case Action::FUNC_EXIT: {
       uint32_t func_id;
       dq.unpack_32(func_id);
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "FUNC_EXIT: " << func_id << std::endl;
       }
       if (ACTION) {
@@ -525,7 +525,7 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
       // break fcnId into argId and fcnId, 16 bit each
       argId = fcnId & 0xFFFF;
       fcnId = fcnId >> 16;
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "POINTS_TO_ARG: " << fcnId << " " << argId << " " << addr
                   << std::endl;
       }
@@ -540,7 +540,7 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
       uint32_t instId;
       uint64_t addr;
       dq.unpack_32_64(instId, addr);
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "POINTS_TO_INST: " << instId << " " << addr << std::endl;
       }
       if (ACTION) {
@@ -636,7 +636,7 @@ void consume_loop_whole_program_dep(DoubleQueue &dq,
       dq.unpack_32_32(loop_id, pid);
       rdtsc_start = rdtsc();
 
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "INIT: " << loop_id << " " << pid << std::endl;
       }
       if (ACTION) {
@@ -645,38 +645,38 @@ void consume_loop_whole_program_dep(DoubleQueue &dq,
       break;
     };
     case Action::LOAD: {
+      uint32_t size;
       uint32_t instr;
       uint64_t addr;
       // uint32_t bare_instr;
 
-      dq.unpack_32_64(instr, addr);
+      dq.unpack_24_32_64(size, instr, addr);
 
-      if (DEBUG) {
-        std::cout << "LOAD: " << instr << " " << addr // << " " << bare_instr
+      if (CONSUME_DEBUG) {
+        std::cout << "LOAD: " << instr << " " << addr << " " << size
                   << std::endl;
       }
       if (ACTION) {
         measure_time(load_time,
-                     [&]() { depMod.load(instr, addr, instr); });
-                     // [&]() { depMod.load(instr, addr, bare_instr, value); });
+                     [&]() { depMod.load(instr, addr, instr, size); });
       }
 
       break;
     };
     case Action::STORE: {
+      uint32_t size;
       uint32_t instr;
       // uint32_t bare_instr;
       uint64_t addr;
-      dq.unpack_32_64(instr, addr);
+      dq.unpack_24_32_64(size, instr, addr);
 
-      if (DEBUG) {
-        std::cout << "STORE: " << instr << " " << addr // << " " << bare_instr
+      if (CONSUME_DEBUG) {
+        std::cout << "STORE: " << instr << " " << addr << " " << size
                   << std::endl;
       }
       if (ACTION) {
         measure_time(store_time,
-                     [&]() { depMod.store(instr, instr, addr); });
-                     // [&]() { depMod.store(instr, bare_instr, addr); });
+                     [&]() { depMod.store(instr, instr, addr, size); });
       }
       break;
     };
@@ -685,7 +685,7 @@ void consume_loop_whole_program_dep(DoubleQueue &dq,
       uint32_t size;
       dq.unpack_32_64(size, addr);
 
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "ALLOC: " << addr << " " << size << std::endl;
       }
       if (ACTION) {
@@ -698,7 +698,7 @@ void consume_loop_whole_program_dep(DoubleQueue &dq,
     case Action::LOOP_ENTRY: {
       uint32_t loop_id;
       dq.unpack_32(loop_id);
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "LOOP_ENTRY: " << loop_id << std::endl;
       }
       if (ACTION) {
@@ -707,7 +707,7 @@ void consume_loop_whole_program_dep(DoubleQueue &dq,
       break;
     };
     case Action::LOOP_ITER_CTX: {
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "LOOP_ITER" << std::endl;
       }
       if (ACTION) {
@@ -809,7 +809,7 @@ void consume_loop(DoubleQueue &dq, DependenceModule &depMod) ATTRIBUTE(noinline)
       dq.unpack_32_32(loop_id, pid);
       rdtsc_start = rdtsc();
 
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "INIT: " << loop_id << " " << pid << std::endl;
       }
       if (ACTION) {
@@ -831,7 +831,7 @@ void consume_loop(DoubleQueue &dq, DependenceModule &depMod) ATTRIBUTE(noinline)
       dq.unpack_32_64(instr, addr);
 #endif
 
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "LOAD: " << instr << " " << addr // << " " << bare_instr
                   << std::endl;
       }
@@ -849,7 +849,7 @@ void consume_loop(DoubleQueue &dq, DependenceModule &depMod) ATTRIBUTE(noinline)
       uint64_t addr;
       dq.unpack_32_64(instr, addr);
 
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "STORE: " << instr << " " << addr // << " " << bare_instr
                   << std::endl;
       }
@@ -865,7 +865,7 @@ void consume_loop(DoubleQueue &dq, DependenceModule &depMod) ATTRIBUTE(noinline)
       uint32_t size;
       dq.unpack_32_64(size, addr);
 
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "ALLOC: " << addr << " " << size << std::endl;
       }
       if (ACTION) {
@@ -876,7 +876,7 @@ void consume_loop(DoubleQueue &dq, DependenceModule &depMod) ATTRIBUTE(noinline)
       break;
     };
     case Action::LOOP_INVOC: {
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "LOOP_INVOC" << std::endl;
       }
 
@@ -886,7 +886,7 @@ void consume_loop(DoubleQueue &dq, DependenceModule &depMod) ATTRIBUTE(noinline)
       break;
     };
     case Action::LOOP_ITER: {
-      if (DEBUG) {
+      if (CONSUME_DEBUG) {
         std::cout << "LOOP_ITER" << std::endl;
       }
       if (ACTION) {

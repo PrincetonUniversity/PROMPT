@@ -81,6 +81,7 @@ void DependenceModule::fini(const char *filename) {
 
 void DependenceModule::allocate(void *addr, uint64_t size) {
   smmap->allocate(addr, size);
+  // FIXME: might need to clean up the page!
 }
 
 void DependenceModule::log(TS ts, const uint32_t dst_inst, const uint32_t context){

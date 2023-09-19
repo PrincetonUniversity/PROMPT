@@ -4,10 +4,12 @@ events:
     loop_id: 32
     pid: 32
   load:
+    size: 24
     instr: 32
     addr: 64
     value: 64
   store:
+    size: 24
     instr: 32
     addr:  64
   alloc:
