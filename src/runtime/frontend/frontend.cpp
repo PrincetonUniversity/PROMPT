@@ -155,6 +155,7 @@ void SLAMP_enter_loop(uint32_t id) { PRODUCE_LOOP_ENTRY(id); }
 void SLAMP_exit_loop(uint32_t id) { PRODUCE_LOOP_EXIT(id); }
 
 void SLAMP_loop_iter_ctx(uint32_t id) {
+  PRODUCE_LOOP_ITER_CTX();
   // produce_32_32(LOOP_ITER_CTX, id);
 }
 

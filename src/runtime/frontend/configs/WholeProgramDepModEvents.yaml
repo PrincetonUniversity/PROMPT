@@ -7,7 +7,7 @@ events:
   store: [instr, addr]
   alloc: [size, ptr]
   loop_entry: [loop_id]
-  loop_iter: []
+  loop_iter_ctx: []
   loop_exit: [loop_id]
   # func_entry: [function_id] # optional if tracking context
   # func_exit: [function_id] # optional if tracking context

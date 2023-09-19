@@ -58,9 +58,9 @@ enum AvailableModules {
 };
 
 using Action = UnifiedAction;
-constexpr AvailableModules MODULE = WHOLE_PROGRAM_DEPENDENCE_MODULE;
+constexpr AvailableModules MODULE = DEPENDENCE_MODULE;
 // set the thread count
-constexpr unsigned THREAD_COUNT = 1;
+constexpr unsigned THREAD_COUNT = 8;
 
 #ifdef COLLECT_TRACE_EVENT
 #include <xmmintrin.h>
@@ -706,7 +706,7 @@ void consume_loop_whole_program_dep(DoubleQueue &dq,
       }
       break;
     };
-    case Action::LOOP_ITER: {
+    case Action::LOOP_ITER_CTX: {
       if (DEBUG) {
         std::cout << "LOOP_ITER" << std::endl;
       }

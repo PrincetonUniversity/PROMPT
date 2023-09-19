@@ -6,6 +6,7 @@
 #include <unordered_set>
 #include <vector>
 #include <iomanip>
+#include <iostream>
 
 #include "WholeProgramDependenceModule.h"
 #include "slamp_shadow_mem.h"
@@ -14,50 +15,25 @@
 #include "Profile.h"
 #include "LoopHierarchy.h"
 
-using namespace Profiling;
-using namespace Loop;
-
 #define SIZE_8M  0x800000
 
-uint32_t giNumLoops;
+namespace Profiling {
+std::ostream &operator<<(std::ostream &stream, const MemoryProfile &vp) {
+  stream << vp.total_count << " " << vp.loop_count << " ";
+  return stream;
+}
 
-struct timestamp_s {
-  uint32_t instr : 20;
-  uint64_t timestamp : 44;
-} __attribute__((__packed__));
+bool operator<(const ls_key_t &ls1, const ls_key_t &ls2) {
+  return *((uint32_t *)&ls1) < *((uint32_t *)&ls2);
+}
+} // namespace Profiling
 
-using timestamp_t = struct timestamp_s;
+std::ostream &operator<<(std::ostream &stream, const Dependence &dep) {
+  stream << dep.store << " " << dep.loop << " " << dep.dist << " " << dep.load;
+  return stream;
+}
 
-union timestamp_ts_u {
-  timestamp_t timestamp;
-  TS ts;
-};
-
-using lamp_stats_t = struct _lamp_stats_t {
-  clock_t start_time;
-  int64_t dyn_stores, dyn_loads, num_sync_arcs;
-  int64_t calls_to_qhash;
-  uint32_t nest_depth;
-};
-
-
-static const uint64_t MAX_DEP_DIST = 2;
-
-using DependenceSets = vector<DependenceSet>;
-using Loops =
-    LoopHierarchy<DependenceSets, Loop::DEFAULT_LOOP_DEPTH, MAX_DEP_DIST>;
-using LoopInfoType = Loops::LoopInfoType;
-using MemoryProfilerType = MemoryProfiler<MAX_DEP_DIST>;
-
-static lamp_stats_t lamp_stats;
-
-static MemoryProfilerType *memoryProfiler;
-static Loops *loop_hierarchy;
-uint64_t *iterationcount;
-
-static uint64_t time_stamp;
-
-static void initializeSets() {
+void WholeProgramDependenceModule::initializeSets() {
   LoopInfoType &loopInfo = loop_hierarchy->getCurrentLoop();
   DependenceSets &dependenceSets = loopInfo.getItem();
 
@@ -75,8 +51,9 @@ static void initializeSets() {
   }
 }
 
-static LoopInfoType &fillInDependence(const timestamp_t value,
-                                      Dependence &dep) {
+LoopInfoType &
+WholeProgramDependenceModule::fillInDependence(const timestamp_t value,
+                                               Dependence &dep) {
   const uint64_t store_time_stamp = value.timestamp;
   dep.store = value.instr;
   LoopInfoType &loop = loop_hierarchy->findLoop(store_time_stamp);
@@ -90,16 +67,15 @@ static LoopInfoType &fillInDependence(const timestamp_t value,
 void WholeProgramDependenceModule::init(uint32_t loop_id, uint32_t pid) {
   // FIXME: implement init with number of loops and instructions
   uint32_t num_instrs = 20000;
-  uint32_t num_loops = 5000;
+
+  time_stamp = 1;
+
+  lamp_stats.start_time = clock();
 
   loop_hierarchy = new Loops();
   memoryProfiler = new MemoryProfilerType(num_instrs);
-  iterationcount = (uint64_t *)calloc(giNumLoops, sizeof(uint64_t));
 
-  loop_hierarchy->loopIteration(0, iterationcount);
-
-  time_stamp = 1;
-  giNumLoops = num_loops + 1;
+  loop_hierarchy->loopIteration(0);
 
   LoopInfoType &loopInfo = loop_hierarchy->getCurrentLoop();
   DependenceSets dependenceSets(MemoryProfilerType::MAX_TRACKED_DISTANCE);
@@ -108,14 +84,16 @@ void WholeProgramDependenceModule::init(uint32_t loop_id, uint32_t pid) {
   smmap->init_stack(SIZE_8M, pid);
 }
 
-// static uint64_t log_time = 0;
 void WholeProgramDependenceModule::fini(const char *filename) {
 
   auto lamp_out = new ofstream(filename);
 
-  // Print out Loop Iteration Counts
-  for (unsigned i = 0; i < giNumLoops; i++) {
-    *lamp_out << i << " " << iterationcount[i] << "\n";
+  // Print out Loop Iteration Counts, sorted by the loop id
+  std::map<uint32_t, uint32_t> sorted_loop_iteration_count(
+      loop_iteration_count.begin(), loop_iteration_count.end());
+
+  for (auto &it : sorted_loop_iteration_count) {
+    *lamp_out << it.first << " " << it.second << "\n";
   }
 
   // Print out all dependence information
@@ -134,7 +112,8 @@ void WholeProgramDependenceModule::allocate(void *addr, uint64_t size) {
   smmap->allocate(addr, size);
 }
 
-static void log(const timestamp_t ts, const uint32_t dst_inst) {
+void WholeProgramDependenceModule::log(const timestamp_t ts,
+                                       const uint32_t dst_inst) {
   Dependence dep(dst_inst);
   LoopInfoType &loopInfo = fillInDependence(ts, dep);
   dep.dist = MemoryProfilerType::trackedDistance(dep.dist);
@@ -181,11 +160,17 @@ void WholeProgramDependenceModule::store(uint32_t instr, uint32_t bare_instr,
 void WholeProgramDependenceModule::loop_entry(uint32_t loop_id) {
   loop_hierarchy->enterLoop(loop_id, time_stamp);
   initializeSets();
+
+  if (loop_iteration_count.find(loop_id) == loop_iteration_count.end())
+    loop_iteration_count[loop_id] = 0;
+
+  loop_iter();
 }
 
 void WholeProgramDependenceModule::loop_iter() {
   time_stamp++;
-  loop_hierarchy->loopIteration(time_stamp, iterationcount);
+  loop_hierarchy->loopIteration(time_stamp);
+  loop_iteration_count[loop_hierarchy->getCurrentLoop().loop_id]++;
   initializeSets();
 }
 

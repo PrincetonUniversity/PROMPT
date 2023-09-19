@@ -25,7 +25,7 @@ class LoopInfo {
 public:
   circular_buffer<uint64_t> iteration_time_stamps;
   uint64_t invocation_time_stamp{};
-  uint16_t loop_id{};
+  uint32_t loop_id{};
   uint64_t iters{}; // TRM
   T item;
 
@@ -41,8 +41,7 @@ public:
 
   void setItem(const T &item) { this->item = item; }
 
-  void iteration(uint64_t time_stamp, uint64_t iterationcount[]) {
-    iterationcount[this->loop_id]++;
+  void iteration(uint64_t time_stamp) {
     this->iteration_time_stamps.push_back(time_stamp);
   }
 };
@@ -100,8 +99,8 @@ public:
 #endif
   }
 
-  void loopIteration(uint64_t time_stamp, uint64_t itercounts[]) {
-    this->getCurrentLoop().iteration(time_stamp, itercounts);
+  void loopIteration(uint64_t time_stamp) {
+    this->getCurrentLoop().iteration(time_stamp);
   }
 
   LoopInfoType &getCurrentLoop() {

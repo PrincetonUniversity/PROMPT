@@ -20,10 +20,6 @@ using ls_key_t = struct ls_key_s {
   uint32_t loop : 10;
 };
 
-bool operator<(const ls_key_t &ls1, const ls_key_t &ls2) {
-  return *((uint32_t *)&ls1) < *((uint32_t *)&ls2);
-}
-
 static const uint64_t PROFILE_INSTR_MAX = ((1ULL << 22) - 1);
 static const uint64_t PROFILE_LOOP_MAX = ((1ULL << 10) - 1);
 
@@ -66,12 +62,8 @@ struct DependenceHash {
   }
 };
 
-ostream &operator<<(ostream &stream, const Dependence &dep) {
-  stream << dep.store << " " << dep.loop << " " << dep.dist << " " << dep.load;
-  return stream;
-}
-
-using DependenceSet = unordered_set<Dependence, DependenceHash, DependenceEquals>;
+using DependenceSet =
+    unordered_set<Dependence, DependenceHash, DependenceEquals>;
 
 template <class T, int maxTrackedDistance = DEFAULT_TRACKED_DISTANCE>
 class KeyDistanceProfiler {
