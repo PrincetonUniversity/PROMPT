@@ -1,6 +1,7 @@
 ---
 events:
   init:
+    max_inst: 32
     loop_id: 32
     pid: 32
   load:
@@ -11,7 +12,7 @@ events:
   store:
     size: 24
     instr: 32
-    addr:  64
+    addr: 64
   alloc:
     inst_id: 24 # FIXME: this is problematic
     size: 32
@@ -40,4 +41,3 @@ events:
     ptr: 64
   finished:
     # no arg
-...

@@ -2,7 +2,7 @@
 module: DepMod
 description: "Dependence module"
 events:
-  init: [loop_id, pid]
+  init: [max_inst, pid]
   load: [size, instr, addr]
   store: [size, instr, addr]
   alloc: [size, ptr]
@@ -12,4 +12,3 @@ events:
   # func_entry: [function_id] # optional if tracking context
   # func_exit: [function_id] # optional if tracking context
   finished: []
-...

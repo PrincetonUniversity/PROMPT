@@ -83,7 +83,7 @@ public:
 
   ~WholeProgramDependenceModule() override { delete smmap; }
 
-  void init(uint32_t loop_id, uint32_t pid);
+  void init(uint32_t max_inst, uint32_t pid);
   void fini(const char *filename);
   // always_inline attribute
   void load(uint32_t instr, const uint64_t addr, const uint32_t bare_instr,

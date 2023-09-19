@@ -95,12 +95,12 @@ static volatile char *lc_dummy = NULL;
 
 PRODUCE_QUEUE_DEFINE();
 
-void SLAMP_init(uint32_t fn_id, uint32_t loop_id) {
+void SLAMP_init(uint32_t max_inst, uint32_t fn_id, uint32_t loop_id) {
 
   PRODUCE_QUEUE_INIT();
   uint32_t pid = getpid();
 
-  PRODUCE_INIT(loop_id, pid);
+  PRODUCE_INIT(max_inst, loop_id, pid);
 
   auto allocateLibcReqs = [](void *addr, size_t size) {
     PRODUCE_ALLOC(0, size, (uint64_t)addr);

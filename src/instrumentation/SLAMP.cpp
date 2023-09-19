@@ -4,6 +4,7 @@
 //
 
 #include "llvm/IR/Instructions.h"
+#include <cstdint>
 #define DEBUG_TYPE "SLAMP"
 
 #include "llvm/IR/LLVMContext.h"
@@ -26,20 +27,20 @@
 #include "llvm/Support/Debug.h"
 
 #include "utils/CastUtil.h"
-#include "utils/Indeterminate.h"
 #include "utils/GlobalCtors.h"
+#include "utils/Indeterminate.h"
 #include "utils/InstInsertPt.h"
 
-#include "SLAMP.h"
 #include "Metadata.h"
+#include "SLAMP.h"
 
 #include "externs.h"
 
+#include <map>
 #include <sstream>
 #include <vector>
-#include <map>
 
-#define INST_ID_BOUND ( ((uint32_t)1<<20) - 1 )
+#define INST_ID_BOUND (((uint32_t)1 << 20) - 1)
 
 using namespace std;
 using namespace llvm;
@@ -73,8 +74,12 @@ namespace liberty::slamp {
 char SLAMP::ID = 0;
 static uint64_t numElidedNode = 0;
 static uint64_t numInstrumentedNode = 0;
-STATISTIC(numElidedNodeStats, "Number of instructions in the loop that are ignored for SLAMP due to pruning");
-STATISTIC(numInstrumentedNodeStats, "Number of instructions in the loop that are instrumented ");
+
+// FIXME: hack for supporting LAMP
+STATISTIC(numElidedNodeStats, "Number of instructions in the loop that are "
+                              "ignored for SLAMP due to pruning");
+STATISTIC(numInstrumentedNodeStats,
+          "Number of instructions in the loop that are instrumented ");
 static RegisterPass<SLAMP> RP("slamp-insts",
                               "Insert instrumentation for SLAMP profiling",
                               false, false);
@@ -94,41 +99,33 @@ static cl::opt<std::string> TargetLoop("slamp-target-loop", cl::init(""),
                                        cl::NotHidden, cl::desc("Target Loop"));
 
 // top priority; not compatible with the rest
-static cl::list<uint32_t> ExplicitInsts("slamp-explicit-insts",
-                  cl::NotHidden, cl::CommaSeparated,
+static cl::list<uint32_t>
+    ExplicitInsts("slamp-explicit-insts", cl::NotHidden, cl::CommaSeparated,
                   cl::desc("Explicitly instrumented instructions"),
                   cl::value_desc("inst_id"));
 
-
-static cl::opt<bool> ProfileGlobals("slamp-profile-globals",
-                                     cl::init(true),
-                                     cl::NotHidden,
-                                     cl::desc("Profile globals"));
+static cl::opt<bool> ProfileGlobals("slamp-profile-globals", cl::init(true),
+                                    cl::NotHidden, cl::desc("Profile globals"));
 
 static cl::opt<bool> IgnoreCall("slamp-ignore-call", cl::init(false),
-                                       cl::NotHidden,
-                                       cl::desc("Ignore dependences from call"));
+                                cl::NotHidden,
+                                cl::desc("Ignore dependences from call"));
 
 // targeting DOALL
-static cl::opt<bool> IsDOALL("slamp-doall", cl::init(false),
-                                       cl::NotHidden,
-                                       cl::desc("Doall"));
+static cl::opt<bool> IsDOALL("slamp-doall", cl::init(false), cl::NotHidden,
+                             cl::desc("Doall"));
 
 // targeting DSWP
-static cl::opt<bool> IsDSWP("slamp-dswp", cl::init(false),
-                                       cl::NotHidden,
-                                       cl::desc("DSWP"));
+static cl::opt<bool> IsDSWP("slamp-dswp", cl::init(false), cl::NotHidden,
+                            cl::desc("DSWP"));
 
-
-static cl::opt<bool> UsePruning("slamp-pruning", cl::init(false),
-                                       cl::NotHidden,
-                                       cl::desc("Use PDG to pruning"));
+static cl::opt<bool> UsePruning("slamp-pruning", cl::init(false), cl::NotHidden,
+                                cl::desc("Use PDG to pruning"));
 
 // target instruction with metadata ID
 static cl::opt<uint32_t> TargetInst("slamp-target-inst", cl::init(0),
-                                       cl::NotHidden,
-                                       cl::desc("Target Instruction"));
-
+                                    cl::NotHidden,
+                                    cl::desc("Target Instruction"));
 
 cl::opt<std::string> outfile("slamp-outfile", cl::init("result.slamp.profile"),
                              cl::NotHidden, cl::desc("Output file name"));
@@ -148,23 +145,44 @@ void SLAMP::getAnalysisUsage(AnalysisUsage &au) const {
 
 static std::vector<uint32_t> elidedLoopInstsId;
 // https://stackoverflow.com/questions/20511347/a-good-hash-function-for-a-vector
-static size_t elidedHash(std::vector<uint32_t> const& vec) {
+static size_t elidedHash(std::vector<uint32_t> const &vec) {
   std::size_t seed = vec.size();
-  for(auto& i : vec) {
+  for (auto &i : vec) {
     seed ^= i + 0x9e3779b9 + (seed << 6) + (seed >> 2);
   }
   return seed;
 }
 
-Value * getGlobalName(GlobalVariable *gv)
-{
+uint32_t findMaxInstructionId(Module &m) {
+  uint32_t maxInstructionId = 0;
+  for (auto &f : m) {
+    if (f.isDeclaration())
+      continue;
+    for (auto &bb : f) {
+      for (auto &inst : bb) {
+        auto id = Namer::getInstrId(&inst);
+        if (id == -1) {
+          continue;
+        }
+        if (id > maxInstructionId) {
+          maxInstructionId = id;
+        }
+      }
+    }
+  }
+
+  return maxInstructionId;
+}
+
+Value *getGlobalName(GlobalVariable *gv) {
   Module *mod = gv->getParent();
   std::string name = "global " + gv->getName().str();
-  return getStringLiteralExpression( *mod, name);
+  return getStringLiteralExpression(*mod, name);
 }
 
 // copy debug information or create a bogus one
-Instruction* updateDebugInfo(Instruction *inserted, Instruction *location, Module &m) {
+Instruction *updateDebugInfo(Instruction *inserted, Instruction *location,
+                             Module &m) {
   if (location->getMetadata(LLVMContext::MD_dbg)) {
     inserted->copyMetadata(*location, ArrayRef<unsigned>{LLVMContext::MD_dbg});
     // inserted->setDebugLoc(location->getDebugLoc());
@@ -172,7 +190,8 @@ Instruction* updateDebugInfo(Instruction *inserted, Instruction *location, Modul
     auto scope = location->getParent()->getParent()->getSubprogram();
     // if scope is empty, create a bogus one
     if (scope == nullptr) {
-      errs() << "Warning: no scope for " << *location << ":"<<location->getParent()->getParent()->getName() << "\n";
+      errs() << "Warning: no scope for " << *location << ":"
+             << location->getParent()->getParent()->getName() << "\n";
       // find main function
       scope = m.getFunction("main")->getSubprogram();
     }
@@ -188,12 +207,13 @@ Instruction* updateDebugInfo(Instruction *inserted, Instruction *location, Modul
   return inserted;
 }
 
-unordered_map<Instruction*, uint32_t> instOffsetMap;
+unordered_map<Instruction *, uint32_t> instOffsetMap;
 
 void generateInstOffset(Module &m) {
   // generate instruction offset
   for (auto &f : m) {
-    if (f.isDeclaration()) continue;
+    if (f.isDeclaration())
+      continue;
     for (auto &bb : f) {
       unsigned offsetWithinBlock = 0;
       for (auto &inst : bb) {
@@ -229,8 +249,8 @@ bool SLAMP::runOnModule(Module &m) {
 #ifdef USE_PDG
   // User set the explicit insts through slamp-explicit-insts
   if (!ExplicitInsts.empty()) {
-    for (auto *BB: this->target_loop->blocks()) {
-      for (Instruction &I: *BB) {
+    for (auto *BB : this->target_loop->blocks()) {
+      for (Instruction &I : *BB) {
         if (!I.mayReadOrWriteMemory()) {
           continue;
         }
@@ -238,7 +258,8 @@ bool SLAMP::runOnModule(Module &m) {
         auto inst_id = Namer::getInstrId(&I);
 
         // check if the instruction is explicitly instrumented
-        if (std::find(ExplicitInsts.begin(), ExplicitInsts.end(), inst_id) != ExplicitInsts.end()) {
+        if (std::find(ExplicitInsts.begin(), ExplicitInsts.end(), inst_id) !=
+            ExplicitInsts.end()) {
           numInstrumentedNode++;
         } else {
           elidedLoopInstsId.push_back(inst_id);
@@ -250,14 +271,13 @@ bool SLAMP::runOnModule(Module &m) {
   }
   // User set the targeted inst through slamp-target-inst
   else if (TargetInst != 0) {
-    auto *aa = getAnalysis< LoopAA >().getTopAA();
+    auto *aa = getAnalysis<LoopAA>().getTopAA();
     aa->dump();
-
 
     // find the instruction based on the metadata
     Instruction *target_inst = nullptr;
-    for (auto *BB: this->target_loop->blocks()) {
-      for (Instruction &I: *BB) {
+    for (auto *BB : this->target_loop->blocks()) {
+      for (Instruction &I : *BB) {
         if (!I.mayReadOrWriteMemory()) {
           continue;
         }
@@ -286,8 +306,8 @@ bool SLAMP::runOnModule(Module &m) {
       errs() << "Target ID: " << TargetInst << "\n";
       errs() << "Target instruction: " << *target_inst << "\n";
 
-      for (auto *BB: this->target_loop->blocks()) {
-        for (Instruction &I: *BB) {
+      for (auto *BB : this->target_loop->blocks()) {
+        for (Instruction &I : *BB) {
           if (!I.mayReadOrWriteMemory()) {
             continue;
           }
@@ -295,32 +315,38 @@ bool SLAMP::runOnModule(Module &m) {
             numInstrumentedNode++;
             continue;
           }
-          // any dependence that has a RAW dep to the target instruction should not be elided
-          auto retLCFW = liberty::disproveLoopCarriedMemoryDep(target_inst, &I, 0b111, this->target_loop, aa);
-          auto retLCBW = liberty::disproveLoopCarriedMemoryDep(&I, target_inst, 0b111, this->target_loop, aa);
-          auto retIIFW = liberty::disproveIntraIterationMemoryDep(target_inst, &I, 0b111, this->target_loop, aa);
-          auto retIIBW = liberty::disproveIntraIterationMemoryDep(&I, target_inst, 0b111, this->target_loop, aa);
+          // any dependence that has a RAW dep to the target instruction should
+          // not be elided
+          auto retLCFW = liberty::disproveLoopCarriedMemoryDep(
+              target_inst, &I, 0b111, this->target_loop, aa);
+          auto retLCBW = liberty::disproveLoopCarriedMemoryDep(
+              &I, target_inst, 0b111, this->target_loop, aa);
+          auto retIIFW = liberty::disproveIntraIterationMemoryDep(
+              target_inst, &I, 0b111, this->target_loop, aa);
+          auto retIIBW = liberty::disproveIntraIterationMemoryDep(
+              &I, target_inst, 0b111, this->target_loop, aa);
 
           // debug
           LLVM_DEBUG(if (Namer::getInstrId(&I) == 21182) {
-              Remedies remedies;
-              LoopAA::ModRefResult modrefIIFW = aa->modref(
-                  target_inst, LoopAA::Same, &I, target_loop, remedies);
-              auto modrefIIBW = aa->modref(&I, LoopAA::Same, target_inst,
-                  target_loop, remedies);
-              errs() << "Target inst: " << *target_inst << "\n";
-              errs() << "I: " << I << "\n";
-              // convert retLCFW to int and print
-              errs() << "retLCFW: " << (int)(retLCFW) << "\n";
-              errs() << "retLCBW: " << (int)(retLCBW) << "\n";
-              errs() << "retIIFW: " << (int)(retIIFW) << "\n";
-              errs() << "retIIBW: " << (int)(retIIBW) << "\n";
-              errs() << "modrefIIFW: " << (modrefIIFW) << "\n";
-              errs() << "modrefIIBW: " << (modrefIIBW) << "\n";
-              });
+            Remedies remedies;
+            LoopAA::ModRefResult modrefIIFW = aa->modref(
+                target_inst, LoopAA::Same, &I, target_loop, remedies);
+            auto modrefIIBW = aa->modref(&I, LoopAA::Same, target_inst,
+                                         target_loop, remedies);
+            errs() << "Target inst: " << *target_inst << "\n";
+            errs() << "I: " << I << "\n";
+            // convert retLCFW to int and print
+            errs() << "retLCFW: " << (int)(retLCFW) << "\n";
+            errs() << "retLCBW: " << (int)(retLCBW) << "\n";
+            errs() << "retIIFW: " << (int)(retIIFW) << "\n";
+            errs() << "retIIBW: " << (int)(retIIBW) << "\n";
+            errs() << "modrefIIFW: " << (modrefIIFW) << "\n";
+            errs() << "modrefIIBW: " << (modrefIIBW) << "\n";
+          });
 
           // RAW disproved for all deps
-          if ((retLCFW & 0b001) && (retLCBW & 0b001) && (retIIFW & 0b001) && (retIIBW & 0b001)) {
+          if ((retLCFW & 0b001) && (retLCBW & 0b001) && (retIIFW & 0b001) &&
+              (retIIBW & 0b001)) {
             elidedLoopInstsId.push_back(Namer::getInstrId(&I));
             elidedLoopInsts.insert(&I);
             numElidedNode++;
@@ -330,20 +356,20 @@ bool SLAMP::runOnModule(Module &m) {
         }
       }
     }
-  }
-  else if (UsePruning || IsDOALL) { // is DOALL implies use pruning
+  } else if (UsePruning || IsDOALL) { // is DOALL implies use pruning
     // get PDG and prune
     auto *pdgbuilder = getAnalysisIfAvailable<PDGBuilder>();
 
     if (pdgbuilder) {
       auto pdg = pdgbuilder->getLoopPDG(this->target_loop);
-      errs() << "Try to elide nodes "  << pdg->numNodes() << "\n";
-      // go through all the nodes and see if they still have potential dependences
+      errs() << "Try to elide nodes " << pdg->numNodes() << "\n";
+      // go through all the nodes and see if they still have potential
+      // dependences
       for (auto node : pdg->getNodes()) {
         bool canBeElided = true;
 
         // have to be instruction and mayReadOrWriteMemory
-        if (auto inst = dyn_cast<Instruction>(node->getT())){
+        if (auto inst = dyn_cast<Instruction>(node->getT())) {
           if (!inst->mayReadOrWriteMemory()) {
             continue;
           }
@@ -362,7 +388,8 @@ bool SLAMP::runOnModule(Module &m) {
               }
               if (IgnoreCall) {
                 // ignore dep to call
-                if (isa<CallBase>(edge->getIncomingT()) || isa<CallBase>(edge->getOutgoingT())) {
+                if (isa<CallBase>(edge->getIncomingT()) ||
+                    isa<CallBase>(edge->getOutgoingT())) {
                   continue;
                 }
               }
@@ -381,7 +408,8 @@ bool SLAMP::runOnModule(Module &m) {
               }
               if (IgnoreCall) {
                 // ignore dep to call
-                if (isa<CallBase>(edge->getOutgoingT()) || isa<CallBase>(edge->getIncomingT())) {
+                if (isa<CallBase>(edge->getOutgoingT()) ||
+                    isa<CallBase>(edge->getIncomingT())) {
                   continue;
                 }
               }
@@ -464,13 +492,13 @@ bool SLAMP::runOnModule(Module &m) {
 bool SLAMP::findTarget(Module &m) {
   bool found = false;
 
-  for (auto & fi : m) {
+  for (auto &fi : m) {
     Function *f = &fi;
 
     if (f->getName().str() == TargetFcn) {
       BasicBlock *header = nullptr;
 
-      for (auto & bi : *f) {
+      for (auto &bi : *f) {
         if (bi.getName().str() == TargetLoop) {
           header = &bi;
           break;
@@ -509,12 +537,12 @@ bool SLAMP::mayCallSetjmpLongjmp(Loop *loop) {
   getCallableFunctions(loop, callables);
 
   return (find_if(callables.begin(), callables.end(), is_setjmp_or_longjmp) !=
-      callables.end());
+          callables.end());
 }
 
 void SLAMP::getCallableFunctions(Loop *loop, set<Function *> &callables) {
-  for (auto &bb: loop->getBlocks()) {
-    for (auto & ii : *bb) {
+  for (auto &bb : loop->getBlocks()) {
+    for (auto &ii : *bb) {
       // FIXME: not only callinst are callable
       auto *ci = dyn_cast<CallInst>(&ii);
       if (!ci)
@@ -562,7 +590,7 @@ void SLAMP::getFunctionsWithSign(CallInst *ci, set<Function *> matched) {
   Module *m = ci->getParent()->getParent()->getParent();
   CallSite cs(ci);
 
-  for (auto & fi : *m) {
+  for (auto &fi : *m) {
     Function *func = &fi;
 
     bool found = true;
@@ -579,7 +607,7 @@ void SLAMP::getFunctionsWithSign(CallInst *ci, set<Function *> matched) {
       Function::arg_iterator fai;
       CallSite::arg_iterator cai;
       for (fai = func->arg_begin(), cai = cs.arg_begin();
-          fai != func->arg_end(); fai++, cai++) {
+           fai != func->arg_end(); fai++, cai++) {
         Value *af = &*fai;
         Value *ac = *cai;
         if (af->getType() != ac->getType()) {
@@ -601,13 +629,13 @@ std::string getInstructionName(Instruction *inst) {
   std::stringstream sout;
   sout << fcn->getName().str() << ' ' << bb->getName().str() << ' ';
 
-  if( inst->hasName() )
+  if (inst->hasName())
     sout << inst->getName().str();
   else {
     // find the offset within the block
     sout << '$' << instOffsetMap[inst];
   }
-  
+
   return sout.str();
 }
 
@@ -626,23 +654,23 @@ void SLAMP::replaceExternalFunctionCalls(Module &m) {
   auto *push = cast<Function>(
       m.getOrInsertFunction("SLAMP_ext_push", Void, I32).getCallee());
   auto *pop =
-    cast<Function>(m.getOrInsertFunction("SLAMP_ext_pop", Void).getCallee());
+      cast<Function>(m.getOrInsertFunction("SLAMP_ext_pop", Void).getCallee());
 
   set<string> externs;
   for (unsigned i = 0, e = sizeof(externs_str) / sizeof(externs_str[0]); i < e;
-      i++)
+       i++)
     externs.insert(externs_str[i]);
 
   // initialize a set of external functions not to be implemented
   set<string> ignores;
   for (unsigned i = 0,
-      e = sizeof(ignore_externs_str) / sizeof(ignore_externs_str[0]);
-      i < e; i++)
+                e = sizeof(ignore_externs_str) / sizeof(ignore_externs_str[0]);
+       i < e; i++)
     ignores.insert(ignore_externs_str[i]);
 
   vector<Function *> funcs;
 
-  for (auto & fi : m) {
+  for (auto &fi : m) {
     Function *func = &fi;
 
     // only external functions are of interest
@@ -653,11 +681,12 @@ void SLAMP::replaceExternalFunctionCalls(Module &m) {
     if (ignores.find(func->getName()) != ignores.end())
       continue;
 
-    // FIXME: malloc can be an intrinsic function, not all intrinsics can be ignored
+    // FIXME: malloc can be an intrinsic function, not all intrinsics can be
+    // ignored
     if (func->isIntrinsic()) {
       // just confirm that all uses is an intrinsic instruction
       for (Value::user_iterator ui = func->user_begin(); ui != func->user_end();
-          ui++)
+           ui++)
         assert(isa<IntrinsicInst>(*ui));
       continue;
     }
@@ -690,7 +719,7 @@ void SLAMP::replaceExternalFunctionCalls(Module &m) {
         continue;
 
       // FIXME: duplicated code as instrumentLoopInst
-      auto id = Namer:: getInstrId(inst);
+      auto id = Namer::getInstrId(inst);
       if (id == -1) {
         continue;
       }
@@ -698,17 +727,15 @@ void SLAMP::replaceExternalFunctionCalls(Module &m) {
       args.push_back(ConstantInt::get(I32, id));
       InstInsertPt pt = InstInsertPt::Before(inst);
       pt << updateDebugInfo(CallInst::Create(push, args), pt.getPosition(), m);
-      
-      errs() << "Malloc ID " << id << " : "
-        << getInstructionName(inst) << "\n";
 
+      errs() << "Malloc ID " << id << " : " << getInstructionName(inst) << "\n";
 
       if (isa<CallInst>(inst)) {
         pt = InstInsertPt::After(inst);
         pt << updateDebugInfo(CallInst::Create(pop), pt.getPosition(), m);
       } else if (auto *invokeI = dyn_cast<InvokeInst>(inst)) {
         // for invoke, need to find the two paths and add pop
-        auto insertPop = [&pop, &m](BasicBlock* entry){
+        auto insertPop = [&pop, &m](BasicBlock *entry) {
           InstInsertPt pt;
           if (isa<LandingPadInst>(entry->getFirstNonPHI()))
             pt = InstInsertPt::After(entry->getFirstNonPHI());
@@ -741,16 +768,14 @@ void SLAMP::replaceExternalFunctionCalls(Module &m) {
 
     // } else {
     //   string wrapper_name = "SLAMP_" + name;
-      /* Function* wrapper = cast<Function>( m.getOrInsertFunction(wrapper_name,
-       * func->getFunctionType() ) ); */
+    /* Function* wrapper = cast<Function>( m.getOrInsertFunction(wrapper_name,
+     * func->getFunctionType() ) ); */
     //   FunctionCallee wrapper =
     //     m.getOrInsertFunction(wrapper_name, func->getFunctionType());
 
     //   // replace 'func' to 'wrapper' in uses
     //   func->replaceAllUsesWith(wrapper.getCallee());
     // }
-
-
   }
 
   if (hasUnrecognizedFunction) {
@@ -775,17 +800,19 @@ Function *SLAMP::instrumentConstructor(Module &m) {
   // Function* init = cast<Function>( m.getOrInsertFunction( "SLAMP_init", Void,
   // I32, I32, (Type*)0) );
   auto *init = cast<Function>(
-      m.getOrInsertFunction("SLAMP_init", Void, I32, I32).getCallee());
+      m.getOrInsertFunction("SLAMP_init", Void, I32, I32, I32).getCallee());
 
+  uint32_t maxInstructionId = findMaxInstructionId(m);
+  uint32_t targetFunctionId = 0;
+  uint32_t targetLoopId = 0;
   if (TargetLoopEnabled) {
-    Value *args[] = {
-        ConstantInt::get(I32, Namer::getFuncId(this->target_fn)),
-        ConstantInt::get(I32, Namer::getBlkId(this->target_loop->getHeader()))};
-    CallInst::Create(init, args, "", entry->getTerminator());
-  } else {
-    Value *args[] = {ConstantInt::get(I32, 0), ConstantInt::get(I32, 0)};
-    CallInst::Create(init, args, "", entry->getTerminator());
+    targetFunctionId = Namer::getFuncId(this->target_fn);
+    targetLoopId = Namer::getBlkId(this->target_loop->getHeader());
   }
+  Value *args[] = {ConstantInt::get(I32, maxInstructionId),
+                   ConstantInt::get(I32, targetFunctionId),
+                   ConstantInt::get(I32, targetLoopId)};
+  CallInst::Create(init, args, "", entry->getTerminator());
 
   return ctor;
 }
@@ -826,7 +853,8 @@ void SLAMP::instrumentGlobalVars(Module &m, Function *ctor) {
 
     if (gv->getName() == "llvm.global_ctors") // explicitly skip global ctor
       continue;
-    else if (gv->getName() == "llvm.global_dtors") // explicitly skip global dtor
+    else if (gv->getName() ==
+             "llvm.global_dtors") // explicitly skip global dtor
       continue;
 
     auto *ty = dyn_cast<PointerType>(gv->getType());
@@ -854,61 +882,67 @@ void SLAMP::instrumentGlobalVars(Module &m, Function *ctor) {
     // FIXME: rename global variable to its name
     Value *name = getStringLiteralExpression(m, "hello");
     InstInsertPt pt = InstInsertPt::Before(entry->getTerminator());
-    Value *args[] = {name, castToInt64Ty(func, pt), ConstantInt::get(I64, size)};
+    Value *args[] = {name, castToInt64Ty(func, pt),
+                     ConstantInt::get(I64, size)};
     pt << CallInst::Create(init_gvars, args);
   }
 }
 
-void SLAMP::findLifetimeMarkers(Value *i, set<const Value *> &already, std::vector<Instruction *> &starts, std::vector<Instruction *> &ends) {
+void SLAMP::findLifetimeMarkers(Value *i, set<const Value *> &already,
+                                std::vector<Instruction *> &starts,
+                                std::vector<Instruction *> &ends) {
   if (already.count(i))
     return;
   already.insert(i);
 
-  for (Value::user_iterator inst=i->user_begin(), end=i->user_end(); inst != end; ++inst) {
+  for (Value::user_iterator inst = i->user_begin(), end = i->user_end();
+       inst != end; ++inst) {
     User *user = &**inst;
 
     if (BitCastInst *cast = dyn_cast<BitCastInst>(user))
       findLifetimeMarkers(cast, already, starts, ends);
 
     else if (IntrinsicInst *intrin = dyn_cast<IntrinsicInst>(user)) {
-      if(intrin->getIntrinsicID() == Intrinsic::lifetime_start)
+      if (intrin->getIntrinsicID() == Intrinsic::lifetime_start)
         starts.push_back(intrin);
-      else if(intrin->getIntrinsicID() == Intrinsic::lifetime_end)
+      else if (intrin->getIntrinsicID() == Intrinsic::lifetime_end)
         ends.push_back(intrin);
     }
   }
 }
 
-void SLAMP::reportStartOfAllocaLifetime(AllocaInst *inst, Instruction *start, Function *fcn, const DataLayout &dl, Module &m) {
+void SLAMP::reportStartOfAllocaLifetime(AllocaInst *inst, Instruction *start,
+                                        Function *fcn, const DataLayout &dl,
+                                        Module &m) {
 
   IRBuilder<> Builder(start->getNextNode());
   // input of callback function
   // TODO: get alloca size: current function gets number of allocation items
   Value *array_sz = inst->getArraySize();
-  if(array_sz->getType() != I64)
-    array_sz = Builder.CreateIntCast(array_sz, I64, false); 
+  if (array_sz->getType() != I64)
+    array_sz = Builder.CreateIntCast(array_sz, I64, false);
 
   auto type_sz = dl.getTypeStoreSize(inst->getAllocatedType());
   // get address of allocaa by executina allocainst
-  Value *addr = static_cast<Value*>(inst);
-  //Instruction *ptrcast = CastInst::CreatePointerCast(addr, I64);
-  //Value* return_addr = Builder.CreatePointerCast(addr, I64);
-  Value* ptrcast = Builder.CreatePointerCast(addr, I64);
+  Value *addr = static_cast<Value *>(inst);
+  // Instruction *ptrcast = CastInst::CreatePointerCast(addr, I64);
+  // Value* return_addr = Builder.CreatePointerCast(addr, I64);
+  Value *ptrcast = Builder.CreatePointerCast(addr, I64);
 
   // get instruction ID of lifetime start
-  //Value *start_value = Namer::getInstrId(start);
+  // Value *start_value = Namer::getInstrId(start);
 
-  Type* ptype[4] = { I64, I64, I32, I64 };
+  Type *ptype[4] = {I64, I64, I32, I64};
 
-  vector<Value*> args;
+  vector<Value *> args;
   args.push_back(array_sz);
   args.push_back(ConstantInt::get(I64, type_sz));
   args.push_back(ConstantInt::get(I32, Namer::getInstrId(start)));
   args.push_back(ptrcast);
-  //Value *params[3] = {array_sz, start_value, return_addr};
+  // Value *params[3] = {array_sz, start_value, return_addr};
 
   FunctionType *fty = FunctionType::get(Void, ptype, false);
-  
+
   CallInst *alloca_start_call = Builder.CreateCall(fty, fcn, args);
 
   updateDebugInfo(alloca_start_call, start, m);
@@ -916,21 +950,21 @@ void SLAMP::reportStartOfAllocaLifetime(AllocaInst *inst, Instruction *start, Fu
   return;
 }
 
-void SLAMP::reportEndOfAllocaLifetime(AllocaInst *inst, Instruction *end, bool empty, Function *fcn) {
-    //Value *params[] = {};
-    //Type *params_type[] = {};
-    FunctionType *fty = FunctionType::get(Void, false);
+void SLAMP::reportEndOfAllocaLifetime(AllocaInst *inst, Instruction *end,
+                                      bool empty, Function *fcn) {
+  // Value *params[] = {};
+  // Type *params_type[] = {};
+  FunctionType *fty = FunctionType::get(Void, false);
 
-  if(!empty) {
+  if (!empty) {
     IRBuilder<> Builder(end);
     CallInst *alloca_end_call = Builder.CreateCall(fty, fcn);
-  }
-  else {
-    //TODO:search for terminator block 
+  } else {
+    // TODO:search for terminator block
     auto *F = inst->getFunction();
 
     // find all return instructions
-    //IRBuilder<> Builder();
+    // IRBuilder<> Builder();
   }
   return;
 }
@@ -943,19 +977,23 @@ void SLAMP::instrumentBasePointer(Module &m) {
 
   const DataLayout &DL = m.getDataLayout();
 
-  auto *find_underlying_arg = cast<Function>(
-      m.getOrInsertFunction("SLAMP_report_base_pointer_arg", Void, I32, I32, I8Ptr)
-      .getCallee());
+  auto *find_underlying_arg =
+      cast<Function>(m.getOrInsertFunction("SLAMP_report_base_pointer_arg",
+                                           Void, I32, I32, I8Ptr)
+                         .getCallee());
   auto *find_underlying_inst = cast<Function>(
       m.getOrInsertFunction("SLAMP_report_base_pointer_inst", Void, I32, I8Ptr)
-      .getCallee());
+          .getCallee());
 
-  // collect all pointer use by load, store, function argument in the targeted loop
-  std::set<const Value*> indeterminate_pointers, indeterminate_objects, already;
+  // collect all pointer use by load, store, function argument in the targeted
+  // loop
+  std::set<const Value *> indeterminate_pointers, indeterminate_objects,
+      already;
 
   for (auto &F : m) {
     for (auto &BB : F) {
-      SpecPriv::Indeterminate::findIndeterminateObjects(BB, indeterminate_pointers, indeterminate_objects);
+      SpecPriv::Indeterminate::findIndeterminateObjects(
+          BB, indeterminate_pointers, indeterminate_objects);
     }
   }
 
@@ -984,11 +1022,10 @@ void SLAMP::instrumentBasePointer(Module &m) {
          << updateDebugInfo(CallInst::Create(find_underlying_arg, args),
                             pt.getPosition(), m);
 
-      // errs() << "UO Arg (" << fcnId << "," << argId <<  ") : "  
-      errs() << "UO Arg " << (fcnId << 5 | ((0x1f & (argId << 4)) | 0x1)) << " : "
-        << getArgName(arg) << "\n";
-    }
-    else if (const auto *const_inst = dyn_cast<Instruction>(object)) {
+      // errs() << "UO Arg (" << fcnId << "," << argId <<  ") : "
+      errs() << "UO Arg " << (fcnId << 5 | ((0x1f & (argId << 4)) | 0x1))
+             << " : " << getArgName(arg) << "\n";
+    } else if (const auto *const_inst = dyn_cast<Instruction>(object)) {
       if (already.count(const_inst))
         continue;
       already.insert(const_inst);
@@ -1007,8 +1044,7 @@ void SLAMP::instrumentBasePointer(Module &m) {
         auto entry = invoke->getNormalDest();
         if (isa<LandingPadInst>(entry->getFirstNonPHI())) {
           where = InstInsertPt::After(entry->getFirstNonPHI());
-        }
-        else {
+        } else {
           // iterate all the phi node in the entry block
           // if inst is one of the incoming value of the phi node
           // then convert the cast to the phi node
@@ -1036,16 +1072,14 @@ void SLAMP::instrumentBasePointer(Module &m) {
         where = InstInsertPt::After(inst);
 
       auto instId = Namer::getInstrId(inst);
-      Value *args[] = {
-        ConstantInt::get(I32, instId),
-        cast
-      };
-      where << cast 
-        << updateDebugInfo(CallInst::Create(find_underlying_inst, args), where.getPosition(), m);
+      Value *args[] = {ConstantInt::get(I32, instId), cast};
+      where << cast
+            << updateDebugInfo(CallInst::Create(find_underlying_inst, args),
+                               where.getPosition(), m);
 
-      errs() << "UO Inst " << (instId << 1 | 0x0) << " : " << getInstructionName(inst) << "\n";
-    }
-    else {
+      errs() << "UO Inst " << (instId << 1 | 0x0) << " : "
+             << getInstructionName(inst) << "\n";
+    } else {
       errs() << "What is: " << *object << '\n';
       assert(false && "Unknown object type?!?!");
     }
@@ -1061,14 +1095,14 @@ void SLAMP::instrumentAllocas(Module &m) {
   typedef std::vector<Instruction *> IList;
   typedef std::set<const Value *> ValSet;
   // List of instructions with allocas
-  std::vector<AllocaInst*> allocas;
+  std::vector<AllocaInst *> allocas;
 
-  auto *stack_alloca_fcn = cast<Function>(
-      m.getOrInsertFunction("SLAMP_callback_stack_alloca", Void, I64, I64, I32, I64)
-      .getCallee());
+  auto *stack_alloca_fcn =
+      cast<Function>(m.getOrInsertFunction("SLAMP_callback_stack_alloca", Void,
+                                           I64, I64, I32, I64)
+                         .getCallee());
   auto *stack_free_fcn = cast<Function>(
-      m.getOrInsertFunction("SLAMP_callback_stack_free", Void)
-      .getCallee());
+      m.getOrInsertFunction("SLAMP_callback_stack_free", Void).getCallee());
 
   // Collect all alloca instructions
   for (auto &f : m) {
@@ -1081,9 +1115,9 @@ void SLAMP::instrumentAllocas(Module &m) {
       }
     }
   }
-  Type* ptype[4] = { I64, I64, I32, I64 };
+  Type *ptype[4] = {I64, I64, I32, I64};
   FunctionType *fty = FunctionType::get(Void, ptype, false);
-  
+
   for (auto i : allocas) {
     // Find explicit lifetime markers
     IList starts, ends;
@@ -1094,19 +1128,17 @@ void SLAMP::instrumentAllocas(Module &m) {
     if (starts.empty())
       starts.push_back(i);
     // Report start of lifetime
-    for (unsigned k = 0, N = starts.size(); k < N; k++) 
+    for (unsigned k = 0, N = starts.size(); k < N; k++)
       reportStartOfAllocaLifetime(i, starts[k], stack_alloca_fcn, dl, m);
-    
+
     // TODO: how do we define end-of-fucntion?
     if (ends.empty())
       reportEndOfAllocaLifetime(i, NULL, 1, stack_free_fcn);
     // Report end of lifetime
-    for (unsigned k = 0, N = ends.size(); k < N; k++) 
+    for (unsigned k = 0, N = ends.size(); k < N; k++)
       reportEndOfAllocaLifetime(i, ends[k], 0, stack_free_fcn);
   }
 }
-
-
 
 // /// FIXME: not called anywhere
 // void SLAMP::instrumentNonStandards(Module &m, Function *ctor) {
@@ -1122,7 +1154,8 @@ void SLAMP::instrumentAllocas(Module &m) {
 
 //   // Call dummy __errno_location to allocate a shadow memory for the location
 //   auto *f = cast<Function>(
-//       m.getOrInsertFunction("SLAMP___errno_location_alloc", Void).getCallee());
+//       m.getOrInsertFunction("SLAMP___errno_location_alloc",
+//       Void).getCallee());
 
 //   BasicBlock *entry = BasicBlock::Create(c, "entry", f, nullptr);
 //   auto *c0 = cast<Function>(
@@ -1154,10 +1187,9 @@ void SLAMP::instrumentAllocas(Module &m) {
 //   CallInst::Create(f, "", ctor_entry->getTerminator());
 // }
 
-
 /// Add SLAMP_main_entry as the first thing in main
 void SLAMP::instrumentMainFunction(Module &m) {
-  for(auto &fi : m) {
+  for (auto &fi : m) {
     Function *func = &fi;
     if (func->getName() != "main")
       continue;
@@ -1180,14 +1212,15 @@ void SLAMP::instrumentMainFunction(Module &m) {
       Value *zeroarg = ConstantInt::get(I32, 0);
       Value *nullarg = ConstantPointerNull::get(I8Ptr->getPointerTo());
 
-      if (main_args.size() == 0) { // no command line input
-        main_args.push_back(zeroarg); // argc
-        main_args.push_back(nullarg); // argv
-        main_args.push_back(nullarg); // envp
+      if (main_args.size() == 0) {        // no command line input
+        main_args.push_back(zeroarg);     // argc
+        main_args.push_back(nullarg);     // argv
+        main_args.push_back(nullarg);     // envp
       } else if (main_args.size() == 2) { // only argc, argv given
         main_args.push_back(nullarg);
       } else {
-        assert(false && "Only have one argument (argc) in main, do not conform to standard");
+        assert(false && "Only have one argument (argc) in main, do not conform "
+                        "to standard");
       }
     }
 
@@ -1206,8 +1239,8 @@ void SLAMP::instrumentMainFunction(Module &m) {
 
     // CallInst *rsp = CallInst::Create(get_rsp, "");
 
-    
-    pt << updateDebugInfo(CallInst::Create(f_main_entry, main_args, ""), pt.getPosition(), m);
+    pt << updateDebugInfo(CallInst::Create(f_main_entry, main_args, ""),
+                          pt.getPosition(), m);
   }
 }
 
@@ -1232,11 +1265,12 @@ void SLAMP::instrumentLoopStartStopForAll(Module &m) {
       vector<Value *> args;
       args.push_back(ConstantInt::get(I32, loopId));
 
-      errs() << "Loop ID " << loopId << " : " << f.getName() << " " << header->getName() << " " << li.getLoopDepth(header) << "\n";
+      errs() << "Loop ID " << loopId << " : " << f.getName() << " "
+             << header->getName() << " " << li.getLoopDepth(header) << "\n";
 
       // check if loop-simplify pass executed
       assert(loop->getNumBackEdges() == 1 &&
-          "Should be only 1 back edge, loop-simplify?");
+             "Should be only 1 back edge, loop-simplify?");
       assert(latch && "Loop latch needs to exist, loop-simplify?");
 
       // add instrumentation on loop header:
@@ -1244,12 +1278,13 @@ void SLAMP::instrumentLoopStartStopForAll(Module &m) {
       // SLAMP_loop_iteration
       auto *f_loop_invoke = cast<Function>(
           m.getOrInsertFunction("SLAMP_enter_loop", Void, I32).getCallee());
-      auto *f_loop_iter= cast<Function>(
+      auto *f_loop_iter = cast<Function>(
           m.getOrInsertFunction("SLAMP_loop_iter_ctx", Void, I32).getCallee());
       auto *f_loop_exit = cast<Function>(
           m.getOrInsertFunction("SLAMP_exit_loop", Void, I32).getCallee());
 
-      PHINode *funcphi = PHINode::Create(f_loop_invoke->getType(), 2, "funcphi_loop_context");
+      PHINode *funcphi =
+          PHINode::Create(f_loop_invoke->getType(), 2, "funcphi_loop_context");
       InstInsertPt pt;
 
       if (isa<LandingPadInst>(header->getFirstNonPHI()))
@@ -1267,7 +1302,9 @@ void SLAMP::instrumentLoopStartStopForAll(Module &m) {
           funcphi->addIncoming(f_loop_invoke, pred);
       }
 
-      updateDebugInfo(CallInst::Create(funcphi, args, "", header->getFirstNonPHI()), header->getFirstNonPHI(), m);
+      updateDebugInfo(
+          CallInst::Create(funcphi, args, "", header->getFirstNonPHI()),
+          header->getFirstNonPHI(), m);
 
       // Add `SLAMP_loop_exit` to all loop exits
       SmallVector<BasicBlock *, 8> exits;
@@ -1294,11 +1331,10 @@ void SLAMP::instrumentLoopStartStopForAll(Module &m) {
       }
     }
   }
-
 }
 
-
-/// Instrumnent each function entry and exit with SLAMP function entry and exit calls
+/// Instrumnent each function entry and exit with SLAMP function entry and exit
+/// calls
 void SLAMP::instrumentFunctionStartStop(Module &m) {
   // for each function body
   for (auto &fi : m) {
@@ -1309,7 +1345,6 @@ void SLAMP::instrumentFunctionStartStop(Module &m) {
     // ignore all SLAMP calls
     if (func->getName().startswith("SLAMP_"))
       continue;
-
 
     // find function ID
     auto fcnID = Namer::getFuncId(func);
@@ -1326,14 +1361,15 @@ void SLAMP::instrumentFunctionStartStop(Module &m) {
 
     // find the function entry
     auto *f_function_entry = cast<Function>(
-      m.getOrInsertFunction("SLAMP_enter_fcn", Void, I32).getCallee());
+        m.getOrInsertFunction("SLAMP_enter_fcn", Void, I32).getCallee());
     auto *f_function_exit = cast<Function>(
-      m.getOrInsertFunction("SLAMP_exit_fcn", Void, I32).getCallee());
+        m.getOrInsertFunction("SLAMP_exit_fcn", Void, I32).getCallee());
 
     // insert SLAMP_enter_fcn at the beginning of the function
     BasicBlock *entry = &(func->getEntryBlock());
     InstInsertPt pt = InstInsertPt::Before(entry->getFirstNonPHI());
-    pt << updateDebugInfo(CallInst::Create(f_function_entry, args), pt.getPosition(), m);
+    pt << updateDebugInfo(CallInst::Create(f_function_entry, args),
+                          pt.getPosition(), m);
 
     // find all exits of the function
     vector<Instruction *> exits;
@@ -1342,21 +1378,21 @@ void SLAMP::instrumentFunctionStartStop(Module &m) {
       if (isa<ReturnInst>(bb->getTerminator()))
         exits.push_back(bb->getTerminator());
       // else if (isa<ResumeInst>(bb->getTerminator()))
-        // exits.push_back(bb->getTerminator());
-        // // FIXME: should be at the beginning of the block
+      // exits.push_back(bb->getTerminator());
+      // // FIXME: should be at the beginning of the block
       // else if (isa<UnreachableInst>(bb->getTerminator()))
-        // exits.push_back(bb->getTerminator());
+      // exits.push_back(bb->getTerminator());
       //// FIXME: invoke the exception end
       // else if (isa<InvokeInst>(bb->getTerminator()))
-        // exits.push_back(bb->getTerminator());
+      // exits.push_back(bb->getTerminator());
     }
 
     // insert SLAMP_exit_fcn at the end of the function
     for (auto &exit : exits) {
       InstInsertPt pt = InstInsertPt::Before(exit);
-      pt << updateDebugInfo(CallInst::Create(f_function_exit, args), pt.getPosition(), m);
+      pt << updateDebugInfo(CallInst::Create(f_function_exit, args),
+                            pt.getPosition(), m);
     }
-
   }
 }
 
@@ -1400,7 +1436,8 @@ void SLAMP::instrumentLoopStartStop(Module &m, Loop *loop) {
       funcphi->addIncoming(f_loop_invoke, pred);
   }
 
-  updateDebugInfo(CallInst::Create(funcphi, "", header->getFirstNonPHI()), header->getFirstNonPHI(), m);
+  updateDebugInfo(CallInst::Create(funcphi, "", header->getFirstNonPHI()),
+                  header->getFirstNonPHI(), m);
 
   // Add `SLAMP_loop_exit` to all loop exits
   SmallVector<BasicBlock *, 8> exits;
@@ -1450,7 +1487,8 @@ void SLAMP::instrumentInstructions(Module &m, Loop *loop) {
       //// FIXME: ignore lifetime_start/end instrumentation
       // if (const auto Intrinsic = dyn_cast<IntrinsicInst>(&inst)) {
       //   const auto Id = Intrinsic->getIntrinsicID();
-      //   if (Id == Intrinsic::lifetime_start || Id == Intrinsic::lifetime_end) {
+      //   if (Id == Intrinsic::lifetime_start || Id == Intrinsic::lifetime_end)
+      //   {
       //     instrumentLifetimeIntrinsics(m, &inst);
       //     continue;
       //   }
@@ -1617,16 +1655,15 @@ void SLAMP::instrumentLifetimeIntrinsics(Module &m, Instruction *inst) {
 void SLAMP::instrumentLoopInst(Module &m, Instruction *inst, uint32_t id) {
   if (IgnoreCall) {
     if (isa<CallBase>(inst)) {
-      LLVM_DEBUG( errs() << "SLAMP: ignore call " << *inst << "\n" );
+      LLVM_DEBUG(errs() << "SLAMP: ignore call " << *inst << "\n");
       return;
     }
   }
   // if elided
   if (elidedLoopInsts.count(inst)) {
-    LLVM_DEBUG( errs() << "SLAMP: elided " << *inst << "\n" );
+    LLVM_DEBUG(errs() << "SLAMP: elided " << *inst << "\n");
     return;
-  }
-  else {
+  } else {
     LLVM_DEBUG(if (inst->mayReadOrWriteMemory()) {
       errs() << "SLAMP: instrument " << *inst << "\n";
     });
@@ -1756,7 +1793,7 @@ void SLAMP::instrumentLoopInst(Module &m, Instruction *inst, uint32_t id) {
       pt << updateDebugInfo(CallInst::Create(pop), pt.getPosition(), m);
     } else if (auto *invokeI = dyn_cast<InvokeInst>(inst)) {
       // for invoke, need to find the two paths and add pop
-      auto insertPop = [&pop, &m](BasicBlock* entry){
+      auto insertPop = [&pop, &m](BasicBlock *entry) {
         InstInsertPt pt;
         if (isa<LandingPadInst>(entry->getFirstNonPHI()))
           pt = InstInsertPt::After(entry->getFirstNonPHI());

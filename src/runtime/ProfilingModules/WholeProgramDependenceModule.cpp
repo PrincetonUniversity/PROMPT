@@ -64,16 +64,13 @@ WholeProgramDependenceModule::fillInDependence(const timestamp_t value,
 }
 
 // init: setup the shadow memory
-void WholeProgramDependenceModule::init(uint32_t loop_id, uint32_t pid) {
-  // FIXME: implement init with number of loops and instructions
-  uint32_t num_instrs = 20000;
-
+void WholeProgramDependenceModule::init(uint32_t max_inst, uint32_t pid) {
   time_stamp = 1;
 
   lamp_stats.start_time = clock();
 
   loop_hierarchy = new Loops();
-  memoryProfiler = new MemoryProfilerType(num_instrs);
+  memoryProfiler = new MemoryProfilerType(max_inst + 1);
 
   loop_hierarchy->loopIteration(0);
 
