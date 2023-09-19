@@ -227,7 +227,7 @@ void SLAMP_load2(uint32_t instr, const uint64_t addr, const uint32_t bare_instr,
 }
 void SLAMP_load4(uint32_t instr, const uint64_t addr, const uint32_t bare_instr,
                  uint64_t value) {
-  SLAMP_load(instr, addr, bare_instr, value,4);
+  SLAMP_load(instr, addr, bare_instr, value, 4);
 }
 
 void SLAMP_load8(uint32_t instr, const uint64_t addr, const uint32_t bare_instr,
@@ -312,6 +312,8 @@ void calloc_callback(void *ptr, size_t nmemb, size_t size) {
 void free_callback(void *ptr) { PRODUCE_FREE((uint64_t)ptr); }
 
 void realloc_callback(void *new_ptr, void *ptr, size_t size) {
+  // FIXME: if realloc returns the same pointer, it needs to be handled
+  // differently
   // TODO: the old pointer might be freed. Need to check whether the two
   // pointers are the same
   PRODUCE_ALLOC(ext_fn_inst_id, size, (uint64_t)new_ptr);

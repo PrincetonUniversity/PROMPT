@@ -29,6 +29,12 @@ public:
   uint64_t getCount() { return total_count; }
   uint64_t getLoopCount() { return loop_count; }
 
+  void merge(const MemoryProfile &other) {
+    total_count += other.total_count;
+    // FIXME: This is not correct. Two threads might double count the same loop.
+    loop_count += other.loop_count;
+  }
+
   friend std::ostream &operator<<(std::ostream &stream,
                                   const MemoryProfile &vp);
 };
@@ -44,6 +50,10 @@ public:
     MemoryProfile &profile = this->getProfile(dep);
     profile.increment();
     return profile;
+  }
+
+  void merge(const MemoryProfiler &other) {
+    KeyDistanceProfiler<MemoryProfile, maxTrackedDistance>::merge(other);
   }
 
   template <int S>

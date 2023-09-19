@@ -8,9 +8,9 @@
 #include <xmmintrin.h>
 
 #include "ProfilingModules/DependenceModule.h"
-#include "ProfilingModules/PointsToModule.h"
 #include "ProfilingModules/LoadedValueModule.h"
 #include "ProfilingModules/ObjectLifetimeModule.h"
+#include "ProfilingModules/PointsToModule.h"
 #include "ProfilingModules/WholeProgramDependenceModule.h"
 #include "sw_queue_astream.h"
 
@@ -47,7 +47,6 @@ enum class UnifiedAction : char {
   FINISHED
 };
 
-
 enum AvailableModules {
   DEPENDENCE_MODULE = 0,
   POINTS_TO_MODULE = 1,
@@ -63,8 +62,8 @@ constexpr AvailableModules MODULE = DEPENDENCE_MODULE;
 constexpr unsigned THREAD_COUNT = 8;
 
 #ifdef COLLECT_TRACE_EVENT
-#include <xmmintrin.h>
 #include <smmintrin.h>
+#include <xmmintrin.h>
 std::vector<__m128i> event_trace;
 static constexpr unsigned event_trace_size = 10'000'000;
 unsigned event_trace_idx = 0;
@@ -77,7 +76,8 @@ static uint64_t alloc_time(0);
 // create segment and corresponding allocator
 bip::fixed_managed_shared_memory *segment;
 
-void consume_loop_lv(DoubleQueue &dq, LoadedValueModule &lvMod) ATTRIBUTE(noinline) {
+void consume_loop_lv(DoubleQueue &dq, LoadedValueModule &lvMod)
+    ATTRIBUTE(noinline) {
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
   uint32_t loop_id;
@@ -90,8 +90,7 @@ void consume_loop_lv(DoubleQueue &dq, LoadedValueModule &lvMod) ATTRIBUTE(noinli
       action();
       uint64_t end = rdtsc();
       time += end - start;
-    }
-    else {
+    } else {
       action();
     }
   };
@@ -173,7 +172,7 @@ void consume_loop_lv(DoubleQueue &dq, LoadedValueModule &lvMod) ATTRIBUTE(noinli
       finished = true;
 
       // if (ACTION) {
-        // lvMod.fini("ptlog.txt");
+      // lvMod.fini("ptlog.txt");
       // }
 
       break;
@@ -182,8 +181,10 @@ void consume_loop_lv(DoubleQueue &dq, LoadedValueModule &lvMod) ATTRIBUTE(noinli
       std::cout << "Unknown action: " << (uint64_t)v << std::endl;
 
       std::cout << "Is ready to read?:" << dq.qNow->ready_to_read << " "
-                << "Is ready to write?:" << dq.qNow->ready_to_write << std::endl;
-      std::cout << "Index: " << dq.index << " Size:" << dq.qNow->size << std::endl;
+                << "Is ready to write?:" << dq.qNow->ready_to_write
+                << std::endl;
+      std::cout << "Index: " << dq.index << " Size:" << dq.qNow->size
+                << std::endl;
 
       for (int i = 0; i < 101; i++) {
         std::cout << dq.qNow->data[dq.index - 100 + i] << " ";
@@ -192,7 +193,8 @@ void consume_loop_lv(DoubleQueue &dq, LoadedValueModule &lvMod) ATTRIBUTE(noinli
     }
 
     // if (counter % 100'000'000 == 0) {
-      // std::cout << "Processed " << counter / 1'000'000 << "M events" << std::endl;
+    // std::cout << "Processed " << counter / 1'000'000 << "M events" <<
+    // std::endl;
     // }
     if (finished) {
       break;
@@ -200,7 +202,8 @@ void consume_loop_lv(DoubleQueue &dq, LoadedValueModule &lvMod) ATTRIBUTE(noinli
   }
 }
 
-void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod) ATTRIBUTE(noinline) {
+void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod)
+    ATTRIBUTE(noinline) {
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
   uint32_t loop_id;
@@ -213,8 +216,7 @@ void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod) ATTRIBUTE(noi
       action();
       uint64_t end = rdtsc();
       time += end - start;
-    }
-    else {
+    } else {
       action();
     }
   };
@@ -270,7 +272,7 @@ void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod) ATTRIBUTE(noi
       }
       if (ACTION) {
         measure_time(alloc_time,
-            [&]() { olMod.free(reinterpret_cast<void *>(addr)); });
+                     [&]() { olMod.free(reinterpret_cast<void *>(addr)); });
       }
       break;
     };
@@ -361,8 +363,10 @@ void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod) ATTRIBUTE(noi
       std::cout << "Unknown action: " << (uint64_t)v << std::endl;
 
       std::cout << "Is ready to read?:" << dq.qNow->ready_to_read << " "
-                << "Is ready to write?:" << dq.qNow->ready_to_write << std::endl;
-      std::cout << "Index: " << dq.index << " Size:" << dq.qNow->size << std::endl;
+                << "Is ready to write?:" << dq.qNow->ready_to_write
+                << std::endl;
+      std::cout << "Index: " << dq.index << " Size:" << dq.qNow->size
+                << std::endl;
 
       for (int i = 0; i < 101; i++) {
         std::cout << dq.qNow->data[dq.index - 100 + i] << " ";
@@ -371,7 +375,8 @@ void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod) ATTRIBUTE(noi
     }
 
     // if (counter % 100'000'000 == 0) {
-      // std::cout << "Processed " << counter / 1'000'000 << "M events" << std::endl;
+    // std::cout << "Processed " << counter / 1'000'000 << "M events" <<
+    // std::endl;
     // }
     if (finished) {
       break;
@@ -379,7 +384,8 @@ void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod) ATTRIBUTE(noi
   }
 }
 
-void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline) {
+void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod)
+    ATTRIBUTE(noinline) {
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
   uint32_t loop_id;
@@ -392,8 +398,7 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
       action();
       uint64_t end = rdtsc();
       time += end - start;
-    }
-    else {
+    } else {
       action();
     }
   };
@@ -449,7 +454,7 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
       }
       if (ACTION) {
         measure_time(alloc_time,
-            [&]() { ptMod.free(reinterpret_cast<void *>(addr)); });
+                     [&]() { ptMod.free(reinterpret_cast<void *>(addr)); });
       }
       break;
     };
@@ -573,7 +578,7 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
       finished = true;
 
       // if (ACTION) {
-        // ptMod.fini("ptlog.txt");
+      // ptMod.fini("ptlog.txt");
       // }
 
       break;
@@ -582,8 +587,10 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
       std::cout << "Unknown action: " << (uint64_t)v << std::endl;
 
       std::cout << "Is ready to read?:" << dq.qNow->ready_to_read << " "
-                << "Is ready to write?:" << dq.qNow->ready_to_write << std::endl;
-      std::cout << "Index: " << dq.index << " Size:" << dq.qNow->size << std::endl;
+                << "Is ready to write?:" << dq.qNow->ready_to_write
+                << std::endl;
+      std::cout << "Index: " << dq.index << " Size:" << dq.qNow->size
+                << std::endl;
 
       for (int i = 0; i < 101; i++) {
         std::cout << dq.qNow->data[dq.index - 100 + i] << " ";
@@ -592,7 +599,8 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod) ATTRIBUTE(noinline)
     }
 
     // if (counter % 100'000'000 == 0) {
-      // std::cout << "Processed " << counter / 1'000'000 << "M events" << std::endl;
+    // std::cout << "Processed " << counter / 1'000'000 << "M events" <<
+    // std::endl;
     // }
     if (finished) {
       break;
@@ -615,8 +623,7 @@ void consume_loop_whole_program_dep(DoubleQueue &dq,
       action();
       uint64_t end = rdtsc();
       time += end - start;
-    }
-    else {
+    } else {
       action();
     }
   };
@@ -743,8 +750,10 @@ void consume_loop_whole_program_dep(DoubleQueue &dq,
       std::cout << "Unknown action: " << (uint64_t)v << std::endl;
 
       std::cout << "Is ready to read?:" << dq.qNow->ready_to_read << " "
-                << "Is ready to write?:" << dq.qNow->ready_to_write << std::endl;
-      std::cout << "Index: " << dq.index << " Size:" << dq.qNow->size << std::endl;
+                << "Is ready to write?:" << dq.qNow->ready_to_write
+                << std::endl;
+      std::cout << "Index: " << dq.index << " Size:" << dq.qNow->size
+                << std::endl;
 
       for (int i = 0; i < 101; i++) {
         std::cout << dq.qNow->data[dq.index - 100 + i] << " ";
@@ -753,7 +762,8 @@ void consume_loop_whole_program_dep(DoubleQueue &dq,
     }
 
     // if (counter % 100'000'000 == 0) {
-      // std::cout << "Processed " << counter / 1'000'000 << "M events" << std::endl;
+    // std::cout << "Processed " << counter / 1'000'000 << "M events" <<
+    // std::endl;
     // }
     if (finished) {
       break;
@@ -769,7 +779,8 @@ void consume_loop_whole_program_dep(DoubleQueue &dq,
 #endif
 }
 
-void consume_loop(DoubleQueue &dq, DependenceModule &depMod) ATTRIBUTE(noinline) {
+void consume_loop(DoubleQueue &dq, DependenceModule &depMod)
+    ATTRIBUTE(noinline) {
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
   uint32_t loop_id;
@@ -782,8 +793,7 @@ void consume_loop(DoubleQueue &dq, DependenceModule &depMod) ATTRIBUTE(noinline)
       action();
       uint64_t end = rdtsc();
       time += end - start;
-    }
-    else {
+    } else {
       action();
     }
   };
@@ -836,9 +846,8 @@ void consume_loop(DoubleQueue &dq, DependenceModule &depMod) ATTRIBUTE(noinline)
                   << std::endl;
       }
       if (ACTION) {
-        measure_time(load_time,
-                     [&]() { depMod.load(instr, addr, instr); });
-                     // [&]() { depMod.load(instr, addr, bare_instr, value); });
+        measure_time(load_time, [&]() { depMod.load(instr, addr, instr); });
+        // [&]() { depMod.load(instr, addr, bare_instr, value); });
       }
 
       break;
@@ -854,9 +863,8 @@ void consume_loop(DoubleQueue &dq, DependenceModule &depMod) ATTRIBUTE(noinline)
                   << std::endl;
       }
       if (ACTION) {
-        measure_time(store_time,
-                     [&]() { depMod.store(instr, instr, addr); });
-                     // [&]() { depMod.store(instr, bare_instr, addr); });
+        measure_time(store_time, [&]() { depMod.store(instr, instr, addr); });
+        // [&]() { depMod.store(instr, bare_instr, addr); });
       }
       break;
     };
@@ -946,8 +954,10 @@ void consume_loop(DoubleQueue &dq, DependenceModule &depMod) ATTRIBUTE(noinline)
       std::cout << "Unknown action: " << (uint64_t)v << std::endl;
 
       std::cout << "Is ready to read?:" << dq.qNow->ready_to_read << " "
-                << "Is ready to write?:" << dq.qNow->ready_to_write << std::endl;
-      std::cout << "Index: " << dq.index << " Size:" << dq.qNow->size << std::endl;
+                << "Is ready to write?:" << dq.qNow->ready_to_write
+                << std::endl;
+      std::cout << "Index: " << dq.index << " Size:" << dq.qNow->size
+                << std::endl;
 
       for (int i = 0; i < 101; i++) {
         std::cout << dq.qNow->data[dq.index - 100 + i] << " ";
@@ -956,7 +966,8 @@ void consume_loop(DoubleQueue &dq, DependenceModule &depMod) ATTRIBUTE(noinline)
     }
 
     // if (counter % 100'000'000 == 0) {
-      // std::cout << "Processed " << counter / 1'000'000 << "M events" << std::endl;
+    // std::cout << "Processed " << counter / 1'000'000 << "M events" <<
+    // std::endl;
     // }
     if (finished) {
       break;
@@ -972,7 +983,7 @@ void consume_loop(DoubleQueue &dq, DependenceModule &depMod) ATTRIBUTE(noinline)
 #endif
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   char *env = getenv("SLAMP_QUEUE_ID");
   if (env == NULL) {
     std::cout << "SLAMP_QUEUE_ID not set" << std::endl;
@@ -983,9 +994,12 @@ int main(int argc, char** argv) {
   auto queue_name = std::string("slamp_queue_") + env;
 
   // FIXME: no need to have fixed address for custom queue any more
-  segment = new bip::fixed_managed_shared_memory(bip::open_or_create, queue_name.c_str(), sizeof(uint32_t) *QSIZE *4, (void*)(1UL << 32));
+  segment = new bip::fixed_managed_shared_memory(
+      bip::open_or_create, queue_name.c_str(), sizeof(uint32_t) * QSIZE * 4,
+      (void *)(1UL << 32));
   // print the address of the shared memory segment
-  std::cout << "Shared memory segment address: " << segment->get_address() << std::endl;
+  std::cout << "Shared memory segment address: " << segment->get_address()
+            << std::endl;
 
   Queue_p dqA, dqB;
   // double buffering
@@ -994,15 +1008,15 @@ int main(int argc, char** argv) {
   auto dataA = segment->construct<uint32_t>("DQ_Data_A")[QSIZE]();
   auto dataB = segment->construct<uint32_t>("DQ_Data_B")[QSIZE]();
 
-  // find the first 16byte alignment 
-  dataA = (uint32_t*)(((uint64_t)dataA + 15) & ~15);
-  dataB = (uint32_t*)(((uint64_t)dataB + 15) & ~15);
+  // find the first 16byte alignment
+  dataA = (uint32_t *)(((uint64_t)dataA + 15) & ~15);
+  dataB = (uint32_t *)(((uint64_t)dataB + 15) & ~15);
   dqA->init(dataA);
   dqB->init(dataB);
 
   constexpr unsigned MASK = THREAD_COUNT - 1;
 
-  unsigned running_threads= THREAD_COUNT;
+  unsigned running_threads = THREAD_COUNT;
   std::mutex m;
   std::condition_variable cv;
 
@@ -1011,10 +1025,11 @@ int main(int argc, char** argv) {
 
 #ifdef UNIFIED_WORKFLOW
   constexpr unsigned THREADS_DEP = 4;
-  constexpr unsigned THREADS_PT = 2; //4;
-  constexpr unsigned THREADS_LV = 4; //4;
-  constexpr unsigned THREADS_OL = 1; //1;
-  constexpr unsigned THREADS = THREADS_DEP + THREADS_PT + THREADS_LV + THREADS_OL;
+  constexpr unsigned THREADS_PT = 2; // 4;
+  constexpr unsigned THREADS_LV = 4; // 4;
+  constexpr unsigned THREADS_OL = 1; // 1;
+  constexpr unsigned THREADS =
+      THREADS_DEP + THREADS_PT + THREADS_LV + THREADS_OL;
   running_threads = THREADS;
   DoubleQueue *dqs_unified[THREADS];
 
@@ -1029,25 +1044,29 @@ int main(int argc, char** argv) {
 
   auto MASK_DEP = THREADS_DEP - 1;
   for (unsigned i = 0; i < THREADS_DEP; i++) {
-    dqs_unified[thread_idx++] = new DoubleQueue(dqA, dqB, true, running_threads, m, cv);
+    dqs_unified[thread_idx++] =
+        new DoubleQueue(dqA, dqB, true, running_threads, m, cv);
     depMods[i] = new DependenceModule(MASK_DEP, i);
   }
 
   auto MASK_PT = THREADS_PT - 1;
   for (unsigned i = 0; i < THREADS_PT; i++) {
-    dqs_unified[thread_idx++] = new DoubleQueue(dqA, dqB, true, running_threads, m, cv);
+    dqs_unified[thread_idx++] =
+        new DoubleQueue(dqA, dqB, true, running_threads, m, cv);
     ptMods[i] = new PointsToModule(MASK_PT, i);
   }
 
   auto MASK_LV = THREADS_LV - 1;
   for (unsigned i = 0; i < THREADS_LV; i++) {
-    dqs_unified[thread_idx++] = new DoubleQueue(dqA, dqB, true, running_threads, m, cv);
+    dqs_unified[thread_idx++] =
+        new DoubleQueue(dqA, dqB, true, running_threads, m, cv);
     lvMods[i] = new LoadedValueModule(MASK_LV, i);
   }
 
   auto MASK_OL = THREADS_OL - 1;
   for (unsigned i = 0; i < THREADS_OL; i++) {
-    dqs_unified[thread_idx++] = new DoubleQueue(dqA, dqB, true, running_threads, m, cv);
+    dqs_unified[thread_idx++] =
+        new DoubleQueue(dqA, dqB, true, running_threads, m, cv);
     olMods[i] = new ObjectLifetimeModule(MASK_OL, i);
   }
 

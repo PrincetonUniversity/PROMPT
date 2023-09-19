@@ -1,21 +1,21 @@
 #include <cstdint>
 #include <fstream>
+#include <iomanip>
+#include <iostream>
 #include <map>
 #include <set>
 #include <thread>
 #include <unordered_set>
 #include <vector>
-#include <iomanip>
-#include <iostream>
 
+#include "LoopHierarchy.h"
+#include "MemoryProfile.h"
+#include "Profile.h"
 #include "WholeProgramDependenceModule.h"
 #include "slamp_shadow_mem.h"
 #include "slamp_timestamp.h"
-#include "MemoryProfile.h"
-#include "Profile.h"
-#include "LoopHierarchy.h"
 
-#define SIZE_8M  0x800000
+#define SIZE_8M 0x800000
 
 namespace Profiling {
 std::ostream &operator<<(std::ostream &stream, const MemoryProfile &vp) {
@@ -110,6 +110,13 @@ void WholeProgramDependenceModule::fini(const char *filename) {
 
 void WholeProgramDependenceModule::allocate(void *addr, uint64_t size) {
   smmap->allocate(addr, size);
+  // clean up the page
+  TS *s = (TS *)GET_SHADOW(addr, DM_TIMESTAMP_SIZE_IN_BYTES_LOG2);
+  // LAMP doesn't actually invalidate anything,
+  // Howver, this invalidation is necessary
+  // FIXME: realloc is not handled here, realloc implies shadow mem to be copied
+  // FIXME: only memset if it belongs to me
+  // memset(s, 0, size * DM_TIMESTAMP_SIZE_IN_BYTES);
 }
 
 void WholeProgramDependenceModule::log(const timestamp_t ts,
@@ -144,9 +151,6 @@ void WholeProgramDependenceModule::load(uint32_t instr, const uint64_t addr,
         last_ts = s[i];
       }
     }
-    // if (ts.ts != 0) {
-    //   log(ts.timestamp, instr);
-    // }
   });
 }
 
@@ -158,7 +162,6 @@ void WholeProgramDependenceModule::store(uint32_t instr, uint32_t bare_instr,
     lamp_stats.dyn_stores++;
     TS *shadow_addr = (TS *)GET_SHADOW(addr, DM_TIMESTAMP_SIZE_IN_BYTES_LOG2);
 
-
     timestamp_ts_u ts;
     ts.timestamp.instr = instr;
     ts.timestamp.timestamp = time_stamp;
@@ -166,7 +169,6 @@ void WholeProgramDependenceModule::store(uint32_t instr, uint32_t bare_instr,
     for (uint32_t i = 0; i < size; i++) {
       shadow_addr[i] = ts.ts;
     }
-    // shadow_addr[0] = ts.ts;
   });
 }
 
@@ -193,5 +195,10 @@ void WholeProgramDependenceModule::loop_exit(uint32_t loop_id) {
 
 void WholeProgramDependenceModule::merge_dep(
     WholeProgramDependenceModule &other) {
-  // FIXME: implement merge
+  // merge lamp_stats
+  lamp_stats.dyn_loads += other.lamp_stats.dyn_loads;
+  lamp_stats.dyn_stores += other.lamp_stats.dyn_stores;
+
+  // merge memoryProfiler
+  memoryProfiler->merge(*other.memoryProfiler);
 }

@@ -122,6 +122,22 @@ public:
     return profiler;
   }
 
+  void merge(const KeyDistanceProfiler<T, maxTrackedDistance> &other) {
+    for (uint32_t load = 0; load < other.instructionInfo.size(); load++) {
+      const DistanceMaps &otherDistanceMap = other.instructionInfo.at(load);
+      for (uint32_t dist = 0; dist < otherDistanceMap.size(); dist++) {
+        const KeyProfilerMap &otherValueMap = otherDistanceMap.at(dist);
+        for (auto &value : otherValueMap) {
+          const ls_key_t key = value.first;
+          const T &profile = value.second;
+          Dependence dep(key.store, key.loop, dist, load);
+          T &valueProfile = getProfile(dep);
+          valueProfile.merge(profile);
+        }
+      }
+    }
+  }
+
   template <class S, int D>
   friend ostream &operator<<(ostream &stream,
                              const KeyDistanceProfiler<S, D> &vp);
