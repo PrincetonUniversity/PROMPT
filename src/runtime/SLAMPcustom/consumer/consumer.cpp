@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <xmmintrin.h>
 
@@ -13,6 +14,8 @@
 #include "ProfilingModules/PointsToModule.h"
 #include "ProfilingModules/WholeProgramDependenceModule.h"
 #include "sw_queue_astream.h"
+
+#include "cxxopts.hpp"
 
 #define ATTRIBUTE(x) __attribute__((x))
 namespace bip = boost::interprocess;
@@ -55,11 +58,10 @@ enum AvailableModules {
   WHOLE_PROGRAM_DEPENDENCE_MODULE = 4,
   NUM_MODULES = 5
 };
+constexpr AvailableModules DEFAULT_MODULE = DEPENDENCE_MODULE;
+constexpr unsigned DEFAULT_THREAD_COUNT = 8;
 
 using Action = UnifiedAction;
-constexpr AvailableModules MODULE = DEPENDENCE_MODULE;
-// set the thread count
-constexpr unsigned THREAD_COUNT = 8;
 
 #ifdef COLLECT_TRACE_EVENT
 #include <smmintrin.h>
@@ -984,6 +986,28 @@ void consume_loop(DoubleQueue &dq, DependenceModule &depMod)
 }
 
 int main(int argc, char **argv) {
+  cxxopts::Options options("consumer", "Consume data from the queue");
+
+  // format AvailableModules enum to a string
+  std::stringstream ss;
+  for (auto i = 0; i < std::numeric_limits<AvailableModules>::max(); i++) {
+    ss << i << ": " << static_cast<AvailableModules>(i) << std::endl;
+  }
+  auto available_modules_str = ss.str();
+
+  options.add_options()(
+      "m,module", available_modules_str,
+      cxxopts::value<int>()->default_value(std::to_string(DEFAULT_MODULE)))(
+      "t,threads", "Number of threads to use",
+      cxxopts::value<unsigned>()->default_value(
+          std::to_string(DEFAULT_THREAD_COUNT)));
+
+  auto result = options.parse(argc, argv);
+
+  const AvailableModules MODULE =
+      static_cast<AvailableModules>(result["module"].as<int>());
+  const unsigned THREAD_COUNT = result["threads"].as<unsigned>();
+
   char *env = getenv("SLAMP_QUEUE_ID");
   if (env == NULL) {
     std::cout << "SLAMP_QUEUE_ID not set" << std::endl;
@@ -1014,7 +1038,7 @@ int main(int argc, char **argv) {
   dqA->init(dataA);
   dqB->init(dataB);
 
-  constexpr unsigned MASK = THREAD_COUNT - 1;
+  const unsigned MASK = THREAD_COUNT - 1;
 
   unsigned running_threads = THREAD_COUNT;
   std::mutex m;
