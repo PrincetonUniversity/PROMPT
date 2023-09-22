@@ -12,6 +12,7 @@
 #include "MemoryProfile.h"
 #include "Profile.h"
 #include "WholeProgramDependenceModule.h"
+#include "parallel_hashmap/phmap.h"
 #include "slamp_shadow_mem.h"
 #include "slamp_timestamp.h"
 
@@ -81,7 +82,18 @@ void WholeProgramDependenceModule::init(uint32_t max_inst, uint32_t pid) {
   smmap->init_stack(SIZE_8M, pid);
 }
 
+// static phmap::flat_hash_map<uint32_t, uint32_t> store_inst_count;
+
 void WholeProgramDependenceModule::fini(const char *filename) {
+
+  // print sorted store_inst_count
+  // std::map<uint32_t, uint32_t>
+  // sorted_store_inst_count(store_inst_count.begin(),
+  //                                                      store_inst_count.end());
+
+  // for (auto &it : sorted_store_inst_count) {
+  //   std::cout << it.first << " " << it.second << std::endl;
+  // }
 
   auto lamp_out = new ofstream(filename);
 
@@ -157,6 +169,17 @@ void WholeProgramDependenceModule::store(uint32_t instr, uint32_t bare_instr,
   local_write(addr, [&]() {
     // store_count++;
     lamp_stats.dyn_stores++;
+    // if (lamp_stats.dyn_stores % 1'000 == 0) {
+    // if (lamp_stats.dyn_stores > 54'000'000 &&
+    //     lamp_stats.dyn_stores < 54'456'000) {
+    //   std::cout << lamp_stats.dyn_stores << " " << instr << std::endl;
+    // }
+
+    // if (store_inst_count.find(instr) == store_inst_count.end())
+    //   store_inst_count[instr] = 1;
+    // else
+    //   store_inst_count[instr]++;
+
     TS *shadow_addr = (TS *)GET_SHADOW(addr, DM_TIMESTAMP_SIZE_IN_BYTES_LOG2);
 
     timestamp_ts_u ts;

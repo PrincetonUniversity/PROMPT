@@ -1,5 +1,6 @@
 # Take the specification of the queue and the events
 # and generate the frontend code.
+import os
 import json
 import yaml
 import argparse
@@ -79,9 +80,6 @@ def importModuleSpec(api, module_event_file, spec_format="yaml"):
 # Import the queue protocol
 
 if __name__ == "__main__":
-    api = importAPI("configs/api.yaml", "yaml")
-    queue_protocol = PROMPTQueueProtocol.QueueProtocol(api)
-
     # Parse the arg "--module" or "-m", options are "dep, ol, pt, and lv"
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -89,6 +87,11 @@ if __name__ == "__main__":
         "--module",
         help="Module to generate frontend for",
         choices=["wp-dep", "dep", "dep-context", "ol", "pt", "lv"],
+    )
+    parser.add_argument("--config-dir", help="Config directory", required=True)
+    parser.add_argument("-o", "--output", help="Output file")
+    parser.add_argument(
+        "-t", "--template", help="Template file", default="custom_produce.h"
     )
     args = parser.parse_args()
     module_to_yaml = {
@@ -99,15 +102,32 @@ if __name__ == "__main__":
         "pt": "PointsToModEvents.yaml",
         "lv": "LoadedValueModEvents.yaml",
     }
-    mod_spec = importModuleSpec(api, "configs/" + module_to_yaml[args.module], "yaml")
+
+    # check if config dir is valid
+    if not os.path.isdir(args.config_dir):
+        print(f"Config directory {args.config_dir} does not exist")
+        exit(1)
+
+    # check if template file exists
+    if not os.path.isfile(args.template):
+        print(f"Template file {args.template} does not exist")
+        exit(1)
+
+    api = importAPI(os.path.join(args.config_dir, "api.yaml"), "yaml")
+    queue_protocol = PROMPTQueueProtocol.QueueProtocol(api)
+
+    mod_spec = importModuleSpec(
+        api, os.path.join(args.config_dir, module_to_yaml[args.module]), "yaml"
+    )
 
     pprint(mod_spec)
     lines = queue_protocol.generateAllProducerFunctions(mod_spec["events"])
 
-    # cat custom_produce.h to slamp_produce.h
-    # then cat the lines to slamp_produce.h
-    with open("slamp_produce.h", "w") as f:
-        with open("custom_produce.h", "r") as g:
-            f.write(g.read())
+    output = args.output or "slamp_produce.h"
 
+    with open(args.template, "r") as f:
+        template = f.readlines()
+
+    with open(output, "w") as f:
+        f.writelines(template)
         f.writelines("\n".join(lines))

@@ -14,11 +14,6 @@ static bool on_profiling = false;
 
 static uint32_t ext_fn_inst_id = 0;
 
-static void *(*old_malloc_hook)(size_t, const void *);
-static void *(*old_realloc_hook)(void *, size_t, const void *);
-static void (*old_free_hook)(void *, const void *);
-static void *(*old_memalign_hook)(size_t, size_t, const void *);
-
 #ifndef PRODUCE_QUEUE_DEFINE
 #define PRODUCE_QUEUE_DEFINE()
 #endif
@@ -84,11 +79,11 @@ static void *(*old_memalign_hook)(size_t, size_t, const void *);
 #endif
 
 #ifndef PRODUCE_LOAD
-#define PRODUCE_LOAD(instr, addr, value)
+#define PRODUCE_LOAD(size, instr, addr, value)
 #endif
 
 #ifndef PRODUCE_STORE
-#define PRODUCE_STORE(instr, addr)
+#define PRODUCE_STORE(size, instr, addr)
 #endif
 
 static volatile char *lc_dummy = NULL;

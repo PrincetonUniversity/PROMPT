@@ -4,7 +4,8 @@
 if [ -z "$SLAMP_HOOKS" ]; then
 # if "SLAMP_INSTALL_DIR" is set
     if [ -n "$SLAMP_INSTALL_DIR" ]; then
-        SLAMP_HOOKS="$SLAMP_INSTALL_DIR/runtime/libslamp_hooks_custom.a -L$SLAMP_INSTALL_DIR/lib -lmalloc_hook"
+    # FIXME: temporary fix to libslamp_hooks_custom_dep.a
+        SLAMP_HOOKS="$SLAMP_INSTALL_DIR/runtime/libslamp_hooks_custom_dep.a -L$SLAMP_INSTALL_DIR/lib -lmalloc_hook"
     else
         echo "SLAMP_INSTALL_DIR is not set"
         exit 1
