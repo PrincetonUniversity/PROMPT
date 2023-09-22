@@ -130,8 +130,6 @@ jobs:
           llvm_install=$(realpath llvm-install)
           cd PROMPT
           cd src/runtime/frontend
-          # TODO: this only test the Dependence Module
-          python FrontendGenerator.py -m dep
           cd ../../..
           export PATH=${llvm_install}/bin:$PATH
           export CC=clang
