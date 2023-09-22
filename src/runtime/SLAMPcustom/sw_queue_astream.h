@@ -6,28 +6,26 @@
 #include <cstdint>
 #define DUALCORE
 
-#include <cstdint>
-#include <sys/mman.h>
-#include <xmmintrin.h>
-#include <smmintrin.h>
-#include <unistd.h>
-#include <mutex>
 #include <condition_variable>
+#include <cstdint>
+#include <mutex>
+#include <smmintrin.h>
+#include <sys/mman.h>
 #include <thread>
+#include <unistd.h>
+#include <xmmintrin.h>
 
-//#define SW_DEBUG
+// #define SW_DEBUG
 
 #ifdef SW_DEBUG
 #include <cstdio>
 #endif /* SW_DEBUG */
 
 #define ATTRIBUTE(x) __attribute__((x))
-// #define ATTRIBUTE(x) 
+// #define ATTRIBUTE(x)
 
 #define MM_STREAM
 
-#include "inline.h"
-#include "bitcast.h"
 #ifndef CACHELINE_SIZE
 #define CACHELINE_SIZE 64
 /*#define CACHELINE_SIZE 64 */
@@ -37,7 +35,9 @@
 
 #define QTYPE uint32_t
 #ifndef QSIZE
-#define QSIZE_BYTES (1 << 27) // 1 << 0 - 1 byte; 1 << 10 1KB; 1 << 20 1MB; 1 << 24 16MB; 1 << 26 64MB; 1 << 28 256MB; 1 << 30 1GB
+#define QSIZE_BYTES                                                            \
+  (1 << 27) // 1 << 0 - 1 byte; 1 << 10 1KB; 1 << 20 1MB; 1 << 24 16MB; 1 << 26
+            // 64MB; 1 << 28 256MB; 1 << 30 1GB
 #define QSIZE (QSIZE_BYTES / sizeof(QTYPE))
 // #define QSIZE (1 << 23)
 #endif /* QSIZE */
@@ -48,7 +48,7 @@ static constexpr uint64_t QSIZE_GUARD = QSIZE - 60;
 #define QPREFETCH (1 << 7)
 #endif /* QPREFETCH */
 
-#define PAD(suffix, size) char padding ## suffix [CACHELINE_SIZE - (size)]
+#define PAD(suffix, size) char padding##suffix[CACHELINE_SIZE - (size)]
 
 struct UnderlyingQueue {
   volatile bool ready_to_read;
@@ -59,7 +59,7 @@ struct UnderlyingQueue {
   PAD(3, sizeof(uint64_t));
   uint32_t *data;
 
-  void init(uint32_t *data){
+  void init(uint32_t *data) {
     this->ready_to_read = false;
     this->ready_to_write = true;
     this->size = 0;
@@ -84,8 +84,9 @@ struct DoubleQueue {
   __m128i packet;
 
   DoubleQueue(Queue_p dqA, Queue_p dqB, bool isConsumer, unsigned &threads,
-      std::mutex &m, std::condition_variable &cv)
-      : qA(dqA), qB(dqB), m(m), cv(cv), running_threads(threads), ALL_THREADS(threads) {
+              std::mutex &m, std::condition_variable &cv)
+      : qA(dqA), qB(dqB), m(m), cv(cv), running_threads(threads),
+        ALL_THREADS(threads) {
     this->qA = dqA;
     this->qB = dqB;
 
@@ -103,11 +104,11 @@ struct DoubleQueue {
     this->data = qNow->data;
   }
 
-  void swap(){
-    if(qNow == qA){
+  void swap() {
+    if (qNow == qA) {
       qNow = qB;
       qOther = qA;
-    }else{
+    } else {
       qNow = qA;
       qOther = qB;
     }
@@ -122,30 +123,34 @@ struct DoubleQueue {
       if (running_threads == 1) {
         qNow->ready_to_read = false;
         qNow->ready_to_write = true;
-        // std::cerr << "Thread " << std::this_thread::get_id() << " is waiting for queue" << std::endl;
+        // std::cerr << "Thread " << std::this_thread::get_id() << " is waiting
+        // for queue" << std::endl;
         while (!qOther->ready_to_read) {
           // spin
           usleep(10);
         }
         qOther->ready_to_write = false;
-        // std::cerr << "Thread " << std::this_thread::get_id() << " ready for queue" << std::endl;
+        // std::cerr << "Thread " << std::this_thread::get_id() << " ready for
+        // queue" << std::endl;
         running_threads = ALL_THREADS;
         lock.unlock();
         // allow all other threads to continue
         cv.notify_all();
-        // std::cerr << "Thread " << std::this_thread::get_id() << " is ready to go" << std::endl;
-      }
-      else {
+        // std::cerr << "Thread " << std::this_thread::get_id() << " is ready to
+        // go" << std::endl;
+      } else {
         // lock is locked
         running_threads--;
-        // std::cerr << "Thread " << std::this_thread::get_id() << " is waiting, threads: " << running_threads << std::endl;
+        // std::cerr << "Thread " << std::this_thread::get_id() << " is waiting,
+        // threads: " << running_threads << std::endl;
 
         // wait fo the last thread to finish
         cv.wait(lock); // unlocks
-        // std::cerr << "Thread " << std::this_thread::get_id() << " is unlocked" << std::endl;
-        // lock reaquires
+        // std::cerr << "Thread " << std::this_thread::get_id() << " is
+        // unlocked" << std::endl; lock reaquires
         lock.unlock();
-        // std::cerr << "Thread " << std::this_thread::get_id() << " is ready to go" << std::endl;
+        // std::cerr << "Thread " << std::this_thread::get_id() << " is ready to
+        // go" << std::endl;
       }
       swap();
       index = 0;
@@ -170,7 +175,7 @@ struct DoubleQueue {
     //   }
     // }
 
-    packet = _mm_load_si128((__m128i *) &data[index]);
+    packet = _mm_load_si128((__m128i *)&data[index]);
     // packet = _mm_stream_load_si128((__m128i *) &data[index]);
     index += 4;
     uint32_t v = _mm_extract_epi32(packet, 0);
@@ -180,13 +185,9 @@ struct DoubleQueue {
     // return packet[0];
   }
 
-  void unpack_32(uint32_t &a) {
-    a = _mm_extract_epi32(packet, 1);
-  }
+  void unpack_32(uint32_t &a) { a = _mm_extract_epi32(packet, 1); }
 
-  void unpack_64(uint64_t &c) {
-    c = _mm_extract_epi64(packet, 1);
-  }
+  void unpack_64(uint64_t &c) { c = _mm_extract_epi64(packet, 1); }
 
   void unpack_24_32_64(uint32_t &a, uint32_t &b, uint64_t &c) {
     uint32_t tmp = _mm_extract_epi32(packet, 0);
@@ -203,15 +204,13 @@ struct DoubleQueue {
   }
 
   void unpack_32_64(uint32_t &a, uint64_t &c) {
-    // std::cout << packet[0] << " " << packet[1] << " " << packet[2] << " " << packet[3] << std::endl;
-    // a = packet[1];
-    // c = ((uint64_t) packet[3] << 32) | packet[2];
-    // c = ((uint64_t) packet[2] << 32) | packet[3];
-    // c = *(uint64_t*) &packet[2];
+    // std::cout << packet[0] << " " << packet[1] << " " << packet[2] << " " <<
+    // packet[3] << std::endl; a = packet[1]; c = ((uint64_t) packet[3] << 32) |
+    // packet[2]; c = ((uint64_t) packet[2] << 32) | packet[3]; c = *(uint64_t*)
+    // &packet[2];
     a = _mm_extract_epi32(packet, 1);
     c = _mm_extract_epi64(packet, 1);
   }
-
 };
 
 struct DoubleQueue_Producer {
@@ -223,8 +222,7 @@ struct DoubleQueue_Producer {
   // uint32_t packet[4];
   __m128i packet;
 
-  DoubleQueue_Producer(Queue_p dqA, Queue_p dqB)
-      : qA(dqA), qB(dqB) {
+  DoubleQueue_Producer(Queue_p dqA, Queue_p dqB) : qA(dqA), qB(dqB) {
     this->qA = dqA;
     this->qB = dqB;
 
@@ -235,11 +233,11 @@ struct DoubleQueue_Producer {
     this->data = qNow->data;
   }
 
-  void swap(){
-    if(qNow == qA){
+  void swap() {
+    if (qNow == qA) {
       qNow = qB;
       qOther = qA;
-    }else{
+    } else {
       qNow = qA;
       qOther = qB;
     }
@@ -252,9 +250,9 @@ struct DoubleQueue_Producer {
     qNow->ready_to_write = false;
   }
 
-  void produce_wait() ATTRIBUTE(noinline){
+  void produce_wait() ATTRIBUTE(noinline) {
     flush();
-    while (!qOther->ready_to_write){
+    while (!qOther->ready_to_write) {
       // spin
       usleep(10);
     }
@@ -265,10 +263,11 @@ struct DoubleQueue_Producer {
   }
 
   // the packet is always 128bit, pad  with 0
-  void produce_32(uint32_t x) ATTRIBUTE(noinline){
+  void produce_32(uint32_t x) ATTRIBUTE(noinline) {
 #ifdef MM_STREAM
-    // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(0, 0, 0, x));
-    _mm_stream_si32((int *) &data[index], x);
+    // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(0, 0, 0,
+    // x));
+    _mm_stream_si32((int *)&data[index], x);
 #else
     data[index] = x;
     // dq_data[dq_index + 1] = 0;
@@ -308,11 +307,11 @@ struct DoubleQueue_Producer {
     }
   }
 
-  void produce_32_32(uint32_t x, uint32_t y) ATTRIBUTE(noinline){
+  void produce_32_32(uint32_t x, uint32_t y) ATTRIBUTE(noinline) {
 #ifdef MM_STREAM
     // _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32(0, 0, y, x));
-    _mm_stream_si32((int *) &data[index], x);
-    _mm_stream_si32((int *) &data[index + 1], y);
+    _mm_stream_si32((int *)&data[index], x);
+    _mm_stream_si32((int *)&data[index + 1], y);
 #else
     data[index] = x;
     data[index + 1] = y;
@@ -326,14 +325,14 @@ struct DoubleQueue_Producer {
     }
   }
 
-  void produce_64_64(const uint64_t x, const uint64_t y) ATTRIBUTE(noinline){
+  void produce_64_64(const uint64_t x, const uint64_t y) ATTRIBUTE(noinline) {
 #ifdef MM_STREAM
     _mm_stream_si128((__m128i *)(data + index), _mm_set_epi64x(y, x));
     // _mm_stream_si64((long long *) &data[index], x);
     // _mm_stream_si64((long long *) &data[index + 2], y);
 #else
-    *((uint64_t *) &data[index]) = x;
-    *((uint64_t *) &data[index + 2]) = y;
+    *((uint64_t *)&data[index]) = x;
+    *((uint64_t *)&data[index + 2]) = y;
 #endif
     index += 4;
 
@@ -352,29 +351,31 @@ struct DoubleQueue_Producer {
     produce_64_64(x_tmp, y);
   }
 
-  void produce_8_32_32(uint8_t x, uint32_t y, uint32_t z) ATTRIBUTE(always_inline) {
+  void produce_8_32_32(uint8_t x, uint32_t y, uint32_t z)
+      ATTRIBUTE(always_inline) {
     uint32_t x_tmp = x;
     produce_32_32_32(x_tmp, y, z);
   }
-  void produce_8_32_64(uint8_t x, uint32_t y, uint64_t z) ATTRIBUTE(always_inline) {
+  void produce_8_32_64(uint8_t x, uint32_t y, uint64_t z)
+      ATTRIBUTE(always_inline) {
     uint32_t x_tmp = x;
     produce_32_32_64(x_tmp, y, z);
   }
 
-
-
   // static void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) {
-  void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) ATTRIBUTE(noinline) {
+  void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z)
+      ATTRIBUTE(noinline) {
 #ifdef MM_STREAM
     // FIXME: set 32bit x, 32bit y, 64bit z, small endian
-    _mm_stream_si32((int *) &data[index], x);
-    _mm_stream_si32((int *) &data[index + 1], y);
-    _mm_stream_si64((long long *) &data[index + 2], z);
-    // _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32( z >> 32, z & 0xFFFFFFFF, y, x));
+    _mm_stream_si32((int *)&data[index], x);
+    _mm_stream_si32((int *)&data[index + 1], y);
+    _mm_stream_si64((long long *)&data[index + 2], z);
+    // _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32( z >> 32, z &
+    // 0xFFFFFFFF, y, x));
 #else
     data[index] = x;
-    data[index+1] = y;
-    *(uint64_t*)&data[index+2] = z;
+    data[index + 1] = y;
+    *(uint64_t *)&data[index + 2] = z;
 #endif
     index += 4;
     if (index >= QSIZE_GUARD) [[unlikely]] {
@@ -382,7 +383,8 @@ struct DoubleQueue_Producer {
     }
   }
 
-  void produce_32_32_32(uint32_t x, uint32_t y, uint32_t z) ATTRIBUTE(noinline) {
+  void produce_32_32_32(uint32_t x, uint32_t y, uint32_t z)
+      ATTRIBUTE(noinline) {
 #ifdef MM_STREAM
     _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32(0, z, y, x));
 
@@ -391,9 +393,9 @@ struct DoubleQueue_Producer {
     // _mm_stream_si32((int *) &data[index+2], z);
 #else
     data[index] = x;
-    data[index+1] = y;
-    data[index+2] = z;
-    data[index+3] = 0;
+    data[index + 1] = y;
+    data[index + 2] = z;
+    data[index + 3] = 0;
 #endif
     index += 4;
     if (index >= QSIZE_GUARD) [[unlikely]] {
@@ -406,7 +408,6 @@ Queue_p qA, qB, qNow, qOther;
 uint64_t dq_index = 0;
 uint32_t *dq_data;
 
-
 void init(Queue_p dqA, Queue_p dqB) {
   qA = dqA;
   qB = dqB;
@@ -418,11 +419,11 @@ void init(Queue_p dqA, Queue_p dqB) {
   dq_data = qNow->data;
 }
 
-void swap(){
-  if(qNow == qA){
+void swap() {
+  if (qNow == qA) {
     qNow = qB;
     qOther = qA;
-  }else{
+  } else {
     qNow = qA;
     qOther = qB;
   }
@@ -435,9 +436,9 @@ void flush() {
   qNow->ready_to_write = false;
 }
 
-void produce_wait() ATTRIBUTE(noinline){
+void produce_wait() ATTRIBUTE(noinline) {
   flush();
-  while (!qOther->ready_to_write){
+  while (!qOther->ready_to_write) {
     // spin
     usleep(10);
   }
@@ -448,13 +449,14 @@ void produce_wait() ATTRIBUTE(noinline){
 }
 
 // the packet is always 128bit, pad  with 0
-void produce_32(uint32_t x) ATTRIBUTE(noinline){
+void produce_32(uint32_t x) ATTRIBUTE(noinline) {
 #ifdef SW_DEBUG
   printf("produce_32 %d\n", x);
 #endif
 #ifdef MM_STREAM
-  // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(0, 0, 0, x));
-  _mm_stream_si32((int *) &dq_data[dq_index], x);
+  // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(0, 0, 0,
+  // x));
+  _mm_stream_si32((int *)&dq_data[dq_index], x);
 #else
   data[index] = x;
   // dq_data[dq_index + 1] = 0;
@@ -497,14 +499,14 @@ void produce_8_24_32_64(uint8_t x, uint32_t y, uint32_t z, uint64_t w)
   }
 }
 
-void produce_32_32(uint32_t x, uint32_t y) ATTRIBUTE(noinline){
+void produce_32_32(uint32_t x, uint32_t y) ATTRIBUTE(noinline) {
 #ifdef SW_DEBUG
   printf("produce_32_32: %u %u\n", x, y);
 #endif
 #ifdef MM_STREAM
   // _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32(0, 0, y, x));
-  _mm_stream_si32((int *) &dq_data[dq_index], x);
-  _mm_stream_si32((int *) &dq_data[dq_index + 1], y);
+  _mm_stream_si32((int *)&dq_data[dq_index], x);
+  _mm_stream_si32((int *)&dq_data[dq_index + 1], y);
 #else
   data[index] = x;
   data[index + 1] = y;
@@ -518,7 +520,7 @@ void produce_32_32(uint32_t x, uint32_t y) ATTRIBUTE(noinline){
   }
 }
 
-void produce_64_64(const uint64_t x, const uint64_t y) ATTRIBUTE(noinline){
+void produce_64_64(const uint64_t x, const uint64_t y) ATTRIBUTE(noinline) {
 #ifdef SW_DEBUG
   printf("produce_64_64: %lu %lu\n", x, y);
 #endif
@@ -527,8 +529,8 @@ void produce_64_64(const uint64_t x, const uint64_t y) ATTRIBUTE(noinline){
   // _mm_stream_si64((long long *) &data[index], x);
   // _mm_stream_si64((long long *) &data[index + 2], y);
 #else
-  *((uint64_t *) &data[index]) = x;
-  *((uint64_t *) &data[index + 2]) = y;
+  *((uint64_t *)&data[index]) = x;
+  *((uint64_t *)&data[index + 2]) = y;
 #endif
   dq_index += 4;
 
@@ -547,7 +549,6 @@ void produce_8_64(uint8_t x, uint64_t y) ATTRIBUTE(always_inline) {
   produce_64_64(x_tmp, y);
 }
 
-
 // static void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) {
 void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) ATTRIBUTE(noinline) {
 #ifdef SW_DEBUG
@@ -555,14 +556,15 @@ void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) ATTRIBUTE(noinline) {
 #endif
 #ifdef MM_STREAM
   // FIXME: set 32bit x, 32bit y, 64bit z, small endian
-  _mm_stream_si32((int *) &dq_data[dq_index], x);
-  _mm_stream_si32((int *) &dq_data[dq_index + 1], y);
-  _mm_stream_si64((long long *) &dq_data[dq_index + 2], z);
-  // _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32( z >> 32, z & 0xFFFFFFFF, y, x));
+  _mm_stream_si32((int *)&dq_data[dq_index], x);
+  _mm_stream_si32((int *)&dq_data[dq_index + 1], y);
+  _mm_stream_si64((long long *)&dq_data[dq_index + 2], z);
+  // _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32( z >> 32, z &
+  // 0xFFFFFFFF, y, x));
 #else
   data[index] = x;
-  data[index+1] = y;
-  *(uint64_t*)&data[index+2] = z;
+  data[index + 1] = y;
+  *(uint64_t *)&data[index + 2] = z;
 #endif
   dq_index += 4;
   if (dq_index >= QSIZE_GUARD) [[unlikely]] {
@@ -582,9 +584,9 @@ void produce_32_32_32(uint32_t x, uint32_t y, uint32_t z) ATTRIBUTE(noinline) {
   // _mm_stream_si32((int *) &data[index+2], z);
 #else
   data[index] = x;
-  data[index+1] = y;
-  data[index+2] = z;
-  data[index+3] = 0;
+  data[index + 1] = y;
+  data[index + 2] = z;
+  data[index + 3] = 0;
 #endif
   dq_index += 4;
   if (dq_index >= QSIZE_GUARD) [[unlikely]] {
@@ -592,12 +594,14 @@ void produce_32_32_32(uint32_t x, uint32_t y, uint32_t z) ATTRIBUTE(noinline) {
   }
 }
 
-void produce_8_32_32(uint8_t x, uint32_t y, uint32_t z) ATTRIBUTE(always_inline) {
+void produce_8_32_32(uint8_t x, uint32_t y, uint32_t z)
+    ATTRIBUTE(always_inline) {
   uint32_t x_tmp = x;
   produce_32_32_32(x_tmp, y, z);
 }
 
-void produce_8_32_64(uint8_t x, uint32_t y, uint64_t z) ATTRIBUTE(always_inline) {
+void produce_8_32_64(uint8_t x, uint32_t y, uint64_t z)
+    ATTRIBUTE(always_inline) {
   uint32_t x_tmp = x;
   produce_32_32_64(x_tmp, y, z);
 }
