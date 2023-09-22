@@ -18,6 +18,9 @@
 #include "cxxopts.hpp"
 
 #define ATTRIBUTE(x) __attribute__((x))
+#define CONSUME_LOOP_ATTRIBUTES                                                \
+  ATTRIBUTE(noinline) ATTRIBUTE(hot) ATTRIBUTE(aligned(4096))
+
 namespace bip = boost::interprocess;
 
 static inline uint64_t rdtsc() {
@@ -78,8 +81,8 @@ static uint64_t alloc_time(0);
 // create segment and corresponding allocator
 bip::fixed_managed_shared_memory *segment;
 
-void consume_loop_lv(DoubleQueue &dq, LoadedValueModule &lvMod)
-    ATTRIBUTE(noinline) {
+void consume_loop_lv(DoubleQueue &dq,
+                     LoadedValueModule &lvMod) CONSUME_LOOP_ATTRIBUTES {
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
   uint32_t loop_id;
@@ -204,8 +207,8 @@ void consume_loop_lv(DoubleQueue &dq, LoadedValueModule &lvMod)
   }
 }
 
-void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod)
-    ATTRIBUTE(noinline) {
+void consume_loop_ol(DoubleQueue &dq,
+                     ObjectLifetimeModule &olMod) CONSUME_LOOP_ATTRIBUTES {
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
   uint32_t loop_id;
@@ -386,8 +389,8 @@ void consume_loop_ol(DoubleQueue &dq, ObjectLifetimeModule &olMod)
   }
 }
 
-void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod)
-    ATTRIBUTE(noinline) {
+void consume_loop_pt(DoubleQueue &dq,
+                     PointsToModule &ptMod) CONSUME_LOOP_ATTRIBUTES {
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
   uint32_t loop_id;
@@ -612,7 +615,7 @@ void consume_loop_pt(DoubleQueue &dq, PointsToModule &ptMod)
 
 void consume_loop_whole_program_dep(DoubleQueue &dq,
                                     WholeProgramDependenceModule &depMod)
-    ATTRIBUTE(noinline) {
+    CONSUME_LOOP_ATTRIBUTES {
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
   uint32_t loop_id;
@@ -781,8 +784,8 @@ void consume_loop_whole_program_dep(DoubleQueue &dq,
 #endif
 }
 
-void consume_loop(DoubleQueue &dq, DependenceModule &depMod)
-    ATTRIBUTE(noinline) {
+void consume_loop(DoubleQueue &dq,
+                  DependenceModule &depMod) CONSUME_LOOP_ATTRIBUTES {
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
   uint32_t loop_id;

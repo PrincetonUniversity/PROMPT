@@ -115,7 +115,7 @@ struct DoubleQueue {
     data = qNow->data;
   }
 
-  void check() {
+  void check() __attribute__((always_inline)) {
     if (index == size) {
       // only the last thread one does this
       auto lock = std::unique_lock<std::mutex>(m);
