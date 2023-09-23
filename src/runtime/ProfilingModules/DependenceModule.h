@@ -87,7 +87,6 @@ public:
 
   void init(uint32_t loop_id, uint32_t pid);
   void fini(const char *filename);
-  // always_inline attribute
   void load(uint32_t instr, const uint64_t addr, const uint32_t bare_instr);
   void store(uint32_t instr, uint32_t bare_instr, const uint64_t addr);
   void allocate(void *addr, uint64_t size);

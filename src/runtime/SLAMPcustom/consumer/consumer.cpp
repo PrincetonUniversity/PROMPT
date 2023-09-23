@@ -1012,7 +1012,7 @@ int main(int argc, char **argv) {
   const unsigned THREAD_COUNT = result["threads"].as<unsigned>();
 
   char *env = getenv("SLAMP_QUEUE_ID");
-  if (env == NULL) {
+  if (env == nullptr) {
     std::cout << "SLAMP_QUEUE_ID not set" << std::endl;
     exit(-1);
   }
@@ -1185,8 +1185,8 @@ int main(int argc, char **argv) {
     } else {
       std::cout << "Running in " << THREAD_COUNT << " threads" << std::endl;
       for (unsigned i = 0; i < THREAD_COUNT; i++) {
-        threads.emplace_back(std::thread(
-            [&](unsigned id) { consume_loop(*dqs[id], *depMods[id]); }, i));
+        threads.emplace_back(
+            [&](unsigned id) { consume_loop(*dqs[id], *depMods[id]); }, i);
       }
 
       for (auto &t : threads) {
@@ -1262,8 +1262,8 @@ int main(int argc, char **argv) {
     } else {
       std::cout << "Running in " << THREAD_COUNT << " threads" << std::endl;
       for (unsigned i = 0; i < THREAD_COUNT; i++) {
-        threads.emplace_back(std::thread(
-            [&](unsigned id) { consume_loop_pt(*dqs[id], *ptMods[id]); }, i));
+        threads.emplace_back(
+            [&](unsigned id) { consume_loop_pt(*dqs[id], *ptMods[id]); }, i);
       }
 
       for (auto &t : threads) {
@@ -1305,8 +1305,8 @@ int main(int argc, char **argv) {
     } else {
       std::cout << "Running in " << THREAD_COUNT << " threads" << std::endl;
       for (unsigned i = 0; i < THREAD_COUNT; i++) {
-        threads.emplace_back(std::thread(
-            [&](unsigned id) { consume_loop_lv(*dqs[id], *lvMods[id]); }, i));
+        threads.emplace_back(
+            [&](unsigned id) { consume_loop_lv(*dqs[id], *lvMods[id]); }, i);
       }
 
       for (auto &t : threads) {
