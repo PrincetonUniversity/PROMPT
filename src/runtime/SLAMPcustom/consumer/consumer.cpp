@@ -1015,6 +1015,8 @@ int main(int argc, char **argv) {
   if (env == nullptr) {
     std::cout << "SLAMP_QUEUE_ID not set" << std::endl;
     exit(-1);
+  } else {
+    std::cout << "SLAMP_QUEUE_ID: " << env << std::endl;
   }
 
   // Create the queue in shared memory
