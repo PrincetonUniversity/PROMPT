@@ -198,7 +198,7 @@ if __name__ == "__main__":
         "--module",
         help="The module to run",
         default="dep",
-        choices=["dep", "lv", "pt", "wp-dep", "dep-context"],
+        choices=["dep", "lv", "pt", "ol", "wp-dep", "dep-context"],
     )
     argparser.add_argument("-t", "--threads", help="Number of threads", default=1)
     argparser.add_argument("--target-fcn", help="The target function to run")
@@ -237,7 +237,7 @@ if __name__ == "__main__":
         "dep-context": 0,
         "pt": 1,
         "lv": 2,
-        "lt": 3,
+        "ol": 3,
         "wp-dep": 4,
     }
     module_index = module_to_index[args.module]
