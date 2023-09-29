@@ -192,7 +192,9 @@ def drive(exe, module_idx, threads, timeout=7200):
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("bc_file", help="The bitcode file to run")
+    argparser.add_argument(
+        "bc_file", help="The bitcode file to run", default=None, nargs="?"
+    )
     argparser.add_argument(
         "-m",
         "--module",
@@ -200,6 +202,7 @@ if __name__ == "__main__":
         default="dep",
         choices=["dep", "lv", "pt", "ol", "wp-dep", "dep-context"],
     )
+
     argparser.add_argument("-t", "--threads", help="Number of threads", default=1)
     argparser.add_argument("--target-fcn", help="The target function to run")
     argparser.add_argument("--target-loop", help="The target loop to run")
@@ -207,21 +210,34 @@ if __name__ == "__main__":
     argparser.add_argument("--skip-run", help="Skip run", action="store_true")
     argparser.add_argument("--output", help="Output file")
     argparser.add_argument("--timeout", help="Timeout", default=7200)
+    argparser.add_argument("--exe", help="The executable to run", default=None)
     args = argparser.parse_args()
 
-    # check if the bitcode file exists
-    if not os.path.exists(args.bc_file):
-        raise RuntimeError(f"{args.bc_file} does not exist")
+    # if no bc_file is provided, has to provide the executable
+    if args.bc_file is None and args.exe is None:
+        raise RuntimeError("Either bc_file or exe has to be provided")
 
-    # TODO: this is optional, if existing named bitcode is provided, we can skip this step
-    named_bc = get_named_bc(args.bc_file)
+    if args.exe is not None and args.skip_build is False:
+        raise RuntimeError("Cannot both build and provide exe, turn on --skip-build")
 
     # TODO: check for target_fcn and target_loop for module that requires them
     if not args.skip_build:
+        # check if the bitcode file exists
+        if not os.path.exists(args.bc_file):
+            raise RuntimeError(f"{args.bc_file} does not exist")
+
+        # TODO: this is optional, if existing named bitcode is provided, we can skip this step
+        named_bc = get_named_bc(args.bc_file)
         with open("compile.log", "w") as compile_output:
             compile_frontend(
                 named_bc, args.module, args.target_fcn, args.target_loop, compile_output
             )
+        exe = named_bc.replace(".bc", ".slamp.exe")
+    else:
+        print(f"{GREEN}Skip build{NC}")
+        exe = args.exe or args.bc_file.replace(".bc", ".slamp.exe")
+        print(f"{GREEN}Using {exe} as the executable{NC}")
+
     # enum AvailableModules {
     #   DEPENDENCE_MODULE = 0,
     #   POINTS_TO_MODULE = 1,
@@ -230,8 +246,6 @@ if __name__ == "__main__":
     #   WHOLE_PROGRAM_DEPENDENCE_MODULE = 4,
     #   NUM_MODULES = 5
     # };
-
-    # map module to the corresponding index
     module_to_index = {
         "dep": 0,
         "dep-context": 0,
@@ -241,10 +255,11 @@ if __name__ == "__main__":
         "wp-dep": 4,
     }
     module_index = module_to_index[args.module]
-    exe = "./" + named_bc.replace(".bc", ".slamp.exe")
     if not args.skip_run:
         if not os.path.exists(exe):
             raise RuntimeError(f"{exe} does not exist")
+        # get the relative path to the executable
+        exe = os.path.abspath(exe)
         run_time = drive(exe, module_index, args.threads, timeout=args.timeout)
 
         print(f"{GREEN}Run time{NC}: {run_time}s")
