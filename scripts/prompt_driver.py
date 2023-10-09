@@ -211,6 +211,9 @@ if __name__ == "__main__":
     argparser.add_argument("--output", help="Output file")
     argparser.add_argument("--timeout", help="Timeout", default=7200)
     argparser.add_argument("--exe", help="The executable to run", default=None)
+    argparser.add_argument(
+        "--runtime-file", help="The file to store runtime", default="slamp.time"
+    )
     args = argparser.parse_args()
 
     # if no bc_file is provided, has to provide the executable
@@ -263,6 +266,10 @@ if __name__ == "__main__":
         run_time = drive(exe, module_index, args.threads, timeout=args.timeout)
 
         print(f"{GREEN}Run time{NC}: {run_time}s")
+
+        # write run_time to a file
+        with open(args.runtime_file, "w") as run_time_fd:
+            run_time_fd.write(str(run_time))
 
     # FIXME: not all modules generate deplog.txt
     slamp_output = args.output or "benchmark.result.slamp.profile"
