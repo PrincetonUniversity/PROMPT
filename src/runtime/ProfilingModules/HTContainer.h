@@ -1,19 +1,19 @@
 /*
  * HT (High Throughput) Containers
  * Author: Ziyang Xu
- * 
+ *
  * Use vector as buffer and use parallelism to improve performance
  * This can replace set and map in STL
  *
  */
 #pragma once
 #include <condition_variable>
+#include <fstream>
 #include <iostream>
 #include <mutex>
 #include <thread>
 #include <unistd.h>
 #include <vector>
-#include <fstream>
 
 #define HT
 // #define ADAPTIVE_HT
@@ -24,7 +24,6 @@
 #else
 #include <unordered_set>
 #endif
-
 
 #ifdef PB
 #define hash_set phmap::flat_hash_set
@@ -37,68 +36,66 @@
 #define HT_THREAD_POOL
 #define CACHELINE_SIZE 64
 
-
 template <typename T, typename Hash = std::hash<T>,
-          typename KeyEqual = std::equal_to<T>,
-          uint32_t MAX_THREAD = 56,
+          typename KeyEqual = std::equal_to<T>, uint32_t MAX_THREAD = 56,
           uint32_t BUFFER_SIZE = 1'000'000>
 class HTSet {
 
-    public:
-      void Start() {
-      }
+public:
+  void Start() {}
 
-    private:
+private:
 #ifdef HT_THREAD_POOL
-      bool should_terminate = false;           // Tells threads to stop looking for jobs
-      std::mutex queue_mutex;                  // Prevents data races to the job queue
-      std::condition_variable mutex_condition; // Allows threads to wait on new jobs or termination 
-      std::vector<std::thread> threads;
-      volatile int pending_jobs = 0;           // Number of jobs that have not been completed
-      // avoid false sharing
+  bool should_terminate = false; // Tells threads to stop looking for jobs
+  std::mutex queue_mutex;        // Prevents data races to the job queue
+  std::condition_variable
+      mutex_condition; // Allows threads to wait on new jobs or termination
+  std::vector<std::thread> threads;
+  volatile int pending_jobs = 0; // Number of jobs that have not been completed
+  // avoid false sharing
 
-      std::vector<bool> ready;
+  std::vector<bool> ready;
 
-      void ThreadLoop(const int id) {
-        auto set_chunk = std::make_unique<hash_set<T, Hash, KeyEqual>>();
+  void ThreadLoop(const int id) {
+    auto set_chunk = std::make_unique<hash_set<T, Hash, KeyEqual>>();
 
-        const auto thread_count = MAX_THREAD;
-        auto job = [&]() {
-          const auto set_size = buffer.size() / thread_count;
-          const auto buffer_size = buffer.size();
-          // take the chunk and convert to a set and return
-          // set_chunk->reserve(set_size);
+    const auto thread_count = MAX_THREAD;
+    auto job = [&]() {
+      const auto set_size = buffer.size() / thread_count;
+      const auto buffer_size = buffer.size();
+      // take the chunk and convert to a set and return
+      // set_chunk->reserve(set_size);
 
-          auto begin = id * (buffer_size / thread_count);
-          auto end = (id + 1) * (buffer_size / thread_count);
+      auto begin = id * (buffer_size / thread_count);
+      auto end = (id + 1) * (buffer_size / thread_count);
 
-          set_chunk->insert(buffer.begin() + begin, buffer.begin() + end);
+      set_chunk->insert(buffer.begin() + begin, buffer.begin() + end);
 
-          m.lock();
-          // lock the global set and insert the chunk
-          set.insert(set_chunk->begin(), set_chunk->end());
-          m.unlock();
-          set_chunk->clear();
-        };
-        while (true) {
-          {
-            std::unique_lock<std::mutex> lock(queue_mutex);
-            mutex_condition.wait(lock, [this, id] { return ready[id * CACHELINE_SIZE]  || should_terminate; });
-            // std::cout << "Thread " << id << " is running" << std::endl;
-            if (should_terminate) {
-              return;
-            }
-          }
-          job();
-          ready[id * CACHELINE_SIZE] = false;
-          {
-            std::unique_lock<std::mutex> lock(queue_mutex);
-            pending_jobs--;
-          }
+      m.lock();
+      // lock the global set and insert the chunk
+      set.insert(set_chunk->begin(), set_chunk->end());
+      m.unlock();
+      set_chunk->clear();
+    };
+    while (true) {
+      {
+        std::unique_lock<std::mutex> lock(queue_mutex);
+        mutex_condition.wait(lock, [this, id] {
+          return ready[id * CACHELINE_SIZE] || should_terminate;
+        });
+        // std::cout << "Thread " << id << " is running" << std::endl;
+        if (should_terminate) {
+          return;
         }
+        lock.unlock();
+        job();
+        lock.lock();
+        ready[id * CACHELINE_SIZE] = false;
+        pending_jobs--;
       }
+    }
+  }
 #endif
-
 
 private:
   std::vector<T> buffer;
@@ -132,9 +129,7 @@ public:
 #endif
   }
 
-  bool count(const T &key) {
-    return set.count(key);
-  }
+  bool count(const T &key) { return set.count(key); }
 
   void emplace_back(T &&t) {
 #ifdef HT
@@ -154,14 +149,10 @@ public:
 #endif
   }
 
-  void emplace(T &&t) {
-    emplace_back(t);
-  }
+  void emplace(T &&t) { emplace_back(t); }
 
   // the same as emplace_back
-  void emplace(const T &t) {
-    emplace_back(t);
-  }
+  void emplace(const T &t) { emplace_back(t); }
 
   // iterator begin
   auto begin() {
@@ -175,17 +166,15 @@ public:
     return set.end();
   }
 
-  void merge(HTSet &other) {
-    merge(other.begin(), other.end());
-  }
+  void merge(HTSet &other) { merge(other.begin(), other.end()); }
 
   // insert (begin, end)
-  void merge(typename hash_set_t::iterator begin, typename hash_set_t::iterator end) {
+  void merge(typename hash_set_t::iterator begin,
+             typename hash_set_t::iterator end) {
     for (auto it = begin; it != end; ++it) {
       set.insert(*it);
     }
   }
-
 
 private:
   const uint32_t getThreadCount() {
@@ -211,8 +200,8 @@ private:
     // max(1, running_threads)
     running_threads = running_threads > 0 ? running_threads : 1;
     // min(MAX_THREAD, running_threads)
-    running_threads = running_threads < MAX_THREAD ? running_threads : MAX_THREAD;
-
+    running_threads =
+        running_threads < MAX_THREAD ? running_threads : MAX_THREAD;
 
     // std::cout << "active threads: " << running_threads << std::endl;
 
@@ -245,12 +234,14 @@ private:
     }
 
 #ifdef HT_THREAD_POOL
+    std::unique_lock<std::mutex> lock(queue_mutex);
     pending_jobs = thread_count;
 
     for (uint32_t i = 0; i < thread_count; i++) {
       ready[i * CACHELINE_SIZE] = true;
     }
 
+    lock.unlock();
     // std::cout << "pending jobs: " << pending_jobs << std::endl;
     mutex_condition.notify_all();
 
@@ -298,83 +289,82 @@ private:
 
 // HTMap_Redux, HTMap_T_Set
 template <typename T, typename Hash = std::hash<T>,
-          typename KeyEqual = std::equal_to<T>,
-          uint32_t MAX_THREAD = 16,
+          typename KeyEqual = std::equal_to<T>, uint32_t MAX_THREAD = 16,
           uint32_t BUFFER_SIZE = 1'000'000>
 class HTMap_Sum {
   using MyType = HTMap_Sum<T, Hash, KeyEqual, MAX_THREAD, BUFFER_SIZE>;
 
-    public:
-      void Start() {
-      }
+public:
+  void Start() {}
 
-    private:
+private:
 #ifdef HT_THREAD_POOL
-      bool should_terminate = false;           // Tells threads to stop looking for jobs
-      std::mutex queue_mutex;                  // Prevents data races to the job queue
-      std::condition_variable mutex_condition; // Allows threads to wait on new jobs or termination 
-      std::vector<std::thread> threads;
-      volatile int pending_jobs = 0;           // Number of jobs that have not been completed
-      // avoid false sharing
+  bool should_terminate = false; // Tells threads to stop looking for jobs
+  std::mutex queue_mutex;        // Prevents data races to the job queue
+  std::condition_variable
+      mutex_condition; // Allows threads to wait on new jobs or termination
+  std::vector<std::thread> threads;
+  volatile int pending_jobs = 0; // Number of jobs that have not been completed
+  // avoid false sharing
 
-      std::vector<bool> ready;
+  std::vector<bool> ready;
 
-      void ThreadLoop(const int id) {
-        auto map_chunk = std::make_unique<hash_map<T, unsigned, Hash, KeyEqual>>();
+  void ThreadLoop(const int id) {
+    auto map_chunk = std::make_unique<hash_map<T, unsigned, Hash, KeyEqual>>();
 
-        const auto thread_count = MAX_THREAD;
-        auto job = [&]() {
-          const auto set_size = buffer.size() / thread_count;
-          const auto buffer_size = buffer.size();
+    const auto thread_count = MAX_THREAD;
+    auto job = [&]() {
+      const auto set_size = buffer.size() / thread_count;
+      const auto buffer_size = buffer.size();
 
-          auto begin = id * (buffer_size / thread_count);
-          auto end = (id + 1) * (buffer_size / thread_count);
+      auto begin = id * (buffer_size / thread_count);
+      auto end = (id + 1) * (buffer_size / thread_count);
 
-          // for each element in the chunk, insert into the map, and increment the count
-          // from begin to end
-          for (auto it = buffer.begin() + begin; it != buffer.begin() + end; ++it) {
-            auto key = *it;
-            auto search = map_chunk->find(key);
-            if (search != map_chunk->end()) {
-              search->second++;
-            } else {
-              map_chunk->insert({key, 1});
-            }
-          }
-
-          m.lock();
-          // lock the global set and insert the chunk
-          // merge the map_chunk into the global map
-          for (auto it = map_chunk->begin(); it != map_chunk->end(); ++it) {
-            auto global_it = map.find(it->first);
-            if (global_it == map.end()) {
-              map.insert({it->first, it->second});
-            } else {
-              global_it->second += it->second;
-            }
-          }
-          m.unlock();
-          map_chunk->clear();
-        };
-        while (true) {
-          {
-            std::unique_lock<std::mutex> lock(queue_mutex);
-            mutex_condition.wait(lock, [this, id] { return ready[id * CACHELINE_SIZE]  || should_terminate; });
-            // std::cout << "Thread " << id << " is running" << std::endl;
-            if (should_terminate) {
-              return;
-            }
-          }
-          job();
-          ready[id * CACHELINE_SIZE] = false;
-          {
-            std::unique_lock<std::mutex> lock(queue_mutex);
-            pending_jobs--;
-          }
+      // for each element in the chunk, insert into the map, and increment the
+      // count from begin to end
+      for (auto it = buffer.begin() + begin; it != buffer.begin() + end; ++it) {
+        auto key = *it;
+        auto search = map_chunk->find(key);
+        if (search != map_chunk->end()) {
+          search->second++;
+        } else {
+          map_chunk->insert({key, 1});
         }
       }
-#endif
 
+      m.lock();
+      // lock the global set and insert the chunk
+      // merge the map_chunk into the global map
+      for (auto it = map_chunk->begin(); it != map_chunk->end(); ++it) {
+        auto global_it = map.find(it->first);
+        if (global_it == map.end()) {
+          map.insert({it->first, it->second});
+        } else {
+          global_it->second += it->second;
+        }
+      }
+      m.unlock();
+      map_chunk->clear();
+    };
+    while (true) {
+      {
+        std::unique_lock<std::mutex> lock(queue_mutex);
+        mutex_condition.wait(lock, [this, id] {
+          return ready[id * CACHELINE_SIZE] || should_terminate;
+        });
+        // std::cout << "Thread " << id << " is running" << std::endl;
+        if (should_terminate) {
+          return;
+        }
+        lock.unlock();
+        job();
+        lock.lock();
+        ready[id * CACHELINE_SIZE] = false;
+        pending_jobs--;
+      }
+    }
+  }
+#endif
 
 private:
   std::vector<T> buffer;
@@ -426,14 +416,10 @@ public:
 #endif
   }
 
-  void emplace(T &&t) {
-    emplace_back(t);
-  }
+  void emplace(T &&t) { emplace_back(t); }
 
   // the same as emplace_back
-  void emplace(const T &t) {
-    emplace_back(t);
-  }
+  void emplace(const T &t) { emplace_back(t); }
 
   // iterator begin
   auto begin() {
@@ -453,12 +439,11 @@ public:
     return map[key];
   }
 
-  void merge(MyType &other) {
-    merge(other.begin(), other.end());
-  }
+  void merge(MyType &other) { merge(other.begin(), other.end()); }
 
   // insert (begin, end)
-  void merge(typename hash_map_t::iterator begin, typename hash_map_t::iterator end) {
+  void merge(typename hash_map_t::iterator begin,
+             typename hash_map_t::iterator end) {
     convertVectorToSet();
     for (auto it = begin; it != end; ++it) {
       auto global_it = map.find(it->first);
@@ -469,7 +454,6 @@ public:
       }
     }
   }
-
 
 private:
   const uint32_t getThreadCount() {
@@ -495,8 +479,8 @@ private:
     // max(1, running_threads)
     running_threads = running_threads > 0 ? running_threads : 1;
     // min(MAX_THREAD, running_threads)
-    running_threads = running_threads < MAX_THREAD ? running_threads : MAX_THREAD;
-
+    running_threads =
+        running_threads < MAX_THREAD ? running_threads : MAX_THREAD;
 
     // std::cout << "active threads: " << running_threads << std::endl;
 
@@ -537,11 +521,13 @@ private:
     }
 
 #ifdef HT_THREAD_POOL
+    std::unique_lock<std::mutex> lock(queue_mutex);
     pending_jobs = thread_count;
 
     for (uint32_t i = 0; i < thread_count; i++) {
       ready[i * CACHELINE_SIZE] = true;
     }
+    lock.unlock();
 
     // std::cout << "pending jobs: " << pending_jobs << std::endl;
     mutex_condition.notify_all();
@@ -577,7 +563,7 @@ private:
 #ifdef HT_THREAD_POOL
   bool should_terminate = false; // Tells threads to stop looking for jobs
   bool should_gather = false;
-  std::mutex queue_mutex;        // Prevents data races to the job queue
+  std::mutex queue_mutex; // Prevents data races to the job queue
   std::condition_variable
       mutex_condition; // Allows threads to wait on new jobs or termination
   std::vector<std::thread> threads;
@@ -598,7 +584,8 @@ private:
       auto end = (id + 1) * (buffer_size / thread_count);
 
       // for each element in the chunk, insert into the map, and take min
-      for (auto it_buffer = buffer.begin() + begin; it_buffer != buffer.begin() + end; ++it_buffer) {
+      for (auto it_buffer = buffer.begin() + begin;
+           it_buffer != buffer.begin() + end; ++it_buffer) {
         auto &key = it_buffer->first;
         auto &value = it_buffer->second;
 
@@ -643,11 +630,10 @@ private:
         if (should_terminate) {
           return;
         }
-      }
-      job();
-      ready[id * CACHELINE_SIZE] = false;
-      {
-        std::unique_lock<std::mutex> lock(queue_mutex);
+        lock.unlock();
+        job();
+        lock.lock();
+        ready[id * CACHELINE_SIZE] = false;
         pending_jobs--;
       }
     }
@@ -738,12 +724,11 @@ public:
     return map[key];
   }
 
-  void merge(MyType &other) {
-    merge(other.begin(), other.end());
-  }
+  void merge(MyType &other) { merge(other.begin(), other.end()); }
 
   // insert (begin, end)
-  void merge(typename hash_map_t::iterator begin, typename hash_map_t::iterator end) {
+  void merge(typename hash_map_t::iterator begin,
+             typename hash_map_t::iterator end) {
     convertVectorToSet(true);
     for (auto it = begin; it != end; ++it) {
       auto global_it = map.find(it->first);
@@ -812,7 +797,7 @@ private:
 
     if (thread_count == 1) {
       // merge the buffer to the map
-      for (auto p: buffer) {
+      for (auto p : buffer) {
         auto &key = p.first;
         auto &value = p.second;
         auto it = map.find(key);
@@ -830,6 +815,7 @@ private:
     }
 
 #ifdef HT_THREAD_POOL
+    std::unique_lock<std::mutex> lock(queue_mutex);
     pending_jobs = thread_count;
 
     for (uint32_t i = 0; i < thread_count; i++) {
@@ -840,6 +826,7 @@ private:
     if (gather) {
       should_gather = true;
     }
+    lock.unlock();
     mutex_condition.notify_all();
 
     // std:: cout << "waiting for jobs to finish" << std::endl;
@@ -876,7 +863,7 @@ private:
 #ifdef HT_THREAD_POOL
   bool should_terminate = false; // Tells threads to stop looking for jobs
   bool should_gather = false;
-  std::mutex queue_mutex;        // Prevents data races to the job queue
+  std::mutex queue_mutex; // Prevents data races to the job queue
   std::condition_variable
       mutex_condition; // Allows threads to wait on new jobs or termination
   std::vector<std::thread> threads;
@@ -896,8 +883,10 @@ private:
       auto begin = id * (buffer_size / thread_count);
       auto end = (id + 1) * (buffer_size / thread_count);
 
-      // for each element in the chunk, insert into the map, and set invalid if not same
-      for (auto it_buffer = buffer.begin() + begin; it_buffer != buffer.begin() + end; ++it_buffer) {
+      // for each element in the chunk, insert into the map, and set invalid
+      // if not same
+      for (auto it_buffer = buffer.begin() + begin;
+           it_buffer != buffer.begin() + end; ++it_buffer) {
         auto &key = it_buffer->first;
         auto &value = it_buffer->second;
 
@@ -923,7 +912,8 @@ private:
             map.insert({it->first, it->second});
           } else {
             // check if value is the same
-            if (global_it->second != MAGIC_INVALID && global_it->second != it->second) {
+            if (global_it->second != MAGIC_INVALID &&
+                global_it->second != it->second) {
               global_it->second = MAGIC_INVALID;
             }
           }
@@ -942,11 +932,10 @@ private:
         if (should_terminate) {
           return;
         }
-      }
-      job();
-      ready[id * CACHELINE_SIZE] = false;
-      {
-        std::unique_lock<std::mutex> lock(queue_mutex);
+        lock.unlock();
+        job();
+        lock.lock();
+        ready[id * CACHELINE_SIZE] = false;
         pending_jobs--;
       }
     }
@@ -1037,12 +1026,11 @@ public:
     return map[key];
   }
 
-  void merge(MyType &other) {
-    merge(other.begin(), other.end());
-  }
+  void merge(MyType &other) { merge(other.begin(), other.end()); }
 
   // insert (begin, end)
-  void merge(typename hash_map_t::iterator begin, typename hash_map_t::iterator end) {
+  void merge(typename hash_map_t::iterator begin,
+             typename hash_map_t::iterator end) {
     convertVectorToSet(true);
     for (auto it = begin; it != end; ++it) {
       auto global_it = map.find(it->first);
@@ -1050,7 +1038,8 @@ public:
         map.insert({it->first, it->second});
       } else {
         // check if value is the same
-        if (global_it->second != MAGIC_INVALID && global_it->second != it->second) {
+        if (global_it->second != MAGIC_INVALID &&
+            global_it->second != it->second) {
           global_it->second = MAGIC_INVALID;
         }
       }
@@ -1111,7 +1100,7 @@ private:
 
     if (thread_count == 1) {
       // merge the buffer to the map
-      for (auto p: buffer) {
+      for (auto p : buffer) {
         auto &key = p.first;
         auto &value = p.second;
         auto it = map.find(key);
@@ -1129,6 +1118,7 @@ private:
     }
 
 #ifdef HT_THREAD_POOL
+    std::unique_lock<std::mutex> lock(queue_mutex);
     pending_jobs = thread_count;
 
     for (uint32_t i = 0; i < thread_count; i++) {
@@ -1139,6 +1129,7 @@ private:
     if (gather) {
       should_gather = true;
     }
+    lock.unlock();
     mutex_condition.notify_all();
 
     // std:: cout << "waiting for jobs to finish" << std::endl;
@@ -1172,7 +1163,7 @@ private:
 #ifdef HT_THREAD_POOL
   bool should_terminate = false; // Tells threads to stop looking for jobs
   bool should_gather = false;
-  std::mutex queue_mutex;        // Prevents data races to the job queue
+  std::mutex queue_mutex; // Prevents data races to the job queue
   std::condition_variable
       mutex_condition; // Allows threads to wait on new jobs or termination
   std::vector<std::thread> threads;
@@ -1192,7 +1183,8 @@ private:
       auto begin = id * (buffer_size / thread_count);
       auto end = (id + 1) * (buffer_size / thread_count);
 
-      // for each element in the chunk, insert into the map, and set invalid if not same
+      // for each element in the chunk, insert into the map, and set invalid
+      // if not same
       for (auto it = buffer.begin() + begin; it != buffer.begin() + end; ++it) {
         auto &key = it->first;
         auto &value = it->second;
@@ -1236,11 +1228,10 @@ private:
         if (should_terminate) {
           return;
         }
-      }
-      job();
-      ready[id * CACHELINE_SIZE] = false;
-      {
-        std::unique_lock<std::mutex> lock(queue_mutex);
+        lock.unlock();
+        job();
+        lock.lock();
+        ready[id * CACHELINE_SIZE] = false;
         pending_jobs--;
       }
     }
@@ -1326,12 +1317,11 @@ public:
     return map[key];
   }
 
-  void merge(MyType &other) {
-    merge(other.begin(), other.end());
-  }
+  void merge(MyType &other) { merge(other.begin(), other.end()); }
 
   // insert (begin, end)
-  void merge(typename hash_map_t::iterator begin, typename hash_map_t::iterator end) {
+  void merge(typename hash_map_t::iterator begin,
+             typename hash_map_t::iterator end) {
     convertVectorToSet(true);
     for (auto it = begin; it != end; ++it) {
       // if the key is not in the map, insert it
@@ -1353,7 +1343,8 @@ private:
     std::ifstream loadavg("/proc/loadavg");
 
     // get active threads count
-    // ignore the first three fp numbers, find the 4th int number (before "/")
+    // ignore the first three fp numbers, find the 4th int number (before
+    // "/")
     std::string load;
     for (int i = 0; i < 3; i++) {
       loadavg >> load;
@@ -1399,7 +1390,7 @@ private:
 
     if (thread_count == 1) {
       // merge the buffer to the map
-      for (auto p: buffer) {
+      for (auto p : buffer) {
         auto &key = p.first;
         auto &value = p.second;
 
@@ -1415,6 +1406,7 @@ private:
     }
 
 #ifdef HT_THREAD_POOL
+    std::unique_lock<std::mutex> lock(queue_mutex);
     pending_jobs = thread_count;
 
     for (uint32_t i = 0; i < thread_count; i++) {
@@ -1424,6 +1416,7 @@ private:
     if (gather) {
       should_gather = true;
     }
+    lock.unlock();
     // std::cout << "pending jobs: " << pending_jobs << std::endl;
     mutex_condition.notify_all();
 

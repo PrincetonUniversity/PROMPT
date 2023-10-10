@@ -1203,6 +1203,10 @@ int main(int argc, char **argv) {
 
       depMods[0]->fini("deplog.txt");
     }
+
+    for (unsigned i = 0; i < THREAD_COUNT; i++) {
+      delete depMods[i];
+    }
   }
 
   if (MODULE == WHOLE_PROGRAM_DEPENDENCE_MODULE) {
@@ -1240,6 +1244,10 @@ int main(int argc, char **argv) {
       }
 
       depMods[0]->fini("deplog.txt");
+    }
+
+    for (unsigned i = 0; i < THREAD_COUNT; i++) {
+      delete depMods[i];
     }
   }
 
@@ -1282,6 +1290,10 @@ int main(int argc, char **argv) {
 
       ptMods[0]->fini("ptlog.txt");
     }
+
+    for (unsigned i = 0; i < THREAD_COUNT; i++) {
+      delete ptMods[i];
+    }
   }
 
   if (MODULE == OBJECT_LIFETIME_MODULE) {
@@ -1322,6 +1334,10 @@ int main(int argc, char **argv) {
       }
 
       lvMods[0]->fini("lvlog.txt");
+    }
+
+    for (unsigned i = 0; i < THREAD_COUNT; i++) {
+      delete lvMods[i];
     }
   }
 #endif

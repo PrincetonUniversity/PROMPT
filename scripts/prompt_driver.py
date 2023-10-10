@@ -155,9 +155,9 @@ def drive(exe, module_idx, threads, timeout=7200):
 
                 time.sleep(0.1)
 
-            # if p_consumer is still running, wait for it up to 10 seconds
+            # if p_consumer is still running, wait for it up to 120 seconds
             if p_consumer.poll() is None:
-                p_consumer.wait(timeout=10)
+                p_consumer.wait(timeout=120)
 
             # if p_producer is still running, it's a problem
             if p_producer.poll() is None:
@@ -183,6 +183,7 @@ def drive(exe, module_idx, threads, timeout=7200):
             print(f"{RED}PROMPT failed{NC}")
             print(f"Consumer return codeL {p_consumer.returncode}")
             print(f"Producer return codeL {p_producer.returncode}")
+            exit(-1)
         else:
             print(f"{GREEN}PROMPT finished successfully{NC}")
 
