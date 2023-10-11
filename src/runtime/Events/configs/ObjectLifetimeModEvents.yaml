@@ -5,10 +5,9 @@ events:
   init: [loop_id, pid]
   alloc: [inst_id, size, ptr]
   free: [ptr]
-  loop_invoc: []
-  loop_iter: []
-  loop_exit: []
+  target_loop_invoc: []
+  target_loop_iter: []
+  target_loop_exit: []
   func_entry: [function_id]
   func_exit: [function_id]
   finished: []
-...

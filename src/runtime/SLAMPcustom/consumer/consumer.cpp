@@ -41,8 +41,9 @@ enum class UnifiedAction : char {
   STORE,
   ALLOC,
   FREE,
-  LOOP_INVOC,
-  LOOP_ITER,
+  TARGET_LOOP_INVOC,
+  TARGET_LOOP_ITER,
+  TARGET_LOOP_EXIT,
   LOOP_ENTRY,
   LOOP_EXIT,
   LOOP_ITER_CTX,
@@ -151,7 +152,7 @@ void consume_loop_lv(DoubleQueue &dq,
     case Action::ALLOC:
     case Action::FREE:
     case Action::LOOP_INVOC:
-    case Action::LOOP_ITER:
+    case Action::TARGET_LOOP_ITER:
     case Action::LOOP_ENTRY:
     case Action::LOOP_EXIT:
     case Action::LOOP_ITER_CTX:
@@ -281,7 +282,7 @@ void consume_loop_ol(DoubleQueue &dq,
       }
       break;
     };
-    case Action::LOOP_INVOC: {
+    case Action::TARGET_LOOP_INVOC: {
       if (CONSUME_DEBUG) {
         std::cout << "LOOP_INVOC" << std::endl;
       }
@@ -291,7 +292,7 @@ void consume_loop_ol(DoubleQueue &dq,
       }
       break;
     };
-    case Action::LOOP_ITER: {
+    case Action::TARGET_LOOP_ITER: {
       if (CONSUME_DEBUG) {
         std::cout << "LOOP_ITER" << std::endl;
       }
@@ -300,7 +301,7 @@ void consume_loop_ol(DoubleQueue &dq,
       }
       break;
     };
-    case Action::LOOP_EXIT: {
+    case Action::TARGET_LOOP_EXIT: {
       if (CONSUME_DEBUG) {
         std::cout << "LOOP_EXIT " << std::endl;
       }
@@ -463,7 +464,7 @@ void consume_loop_pt(DoubleQueue &dq,
       }
       break;
     };
-    case Action::LOOP_INVOC: {
+    case Action::TARGET_LOOP_INVOC: {
       if (CONSUME_DEBUG) {
         std::cout << "LOOP_INVOC" << std::endl;
       }
@@ -473,7 +474,7 @@ void consume_loop_pt(DoubleQueue &dq,
       }
       break;
     };
-    case Action::LOOP_ITER: {
+    case Action::TARGET_LOOP_ITER: {
       if (CONSUME_DEBUG) {
         std::cout << "LOOP_ITER" << std::endl;
       }
@@ -888,7 +889,7 @@ void consume_loop(DoubleQueue &dq,
       }
       break;
     };
-    case Action::LOOP_INVOC: {
+    case Action::TARGET_LOOP_INVOC: {
       if (CONSUME_DEBUG) {
         std::cout << "LOOP_INVOC" << std::endl;
       }
@@ -898,7 +899,7 @@ void consume_loop(DoubleQueue &dq,
       }
       break;
     };
-    case Action::LOOP_ITER: {
+    case Action::TARGET_LOOP_ITER: {
       if (CONSUME_DEBUG) {
         std::cout << "LOOP_ITER" << std::endl;
       }
@@ -907,6 +908,10 @@ void consume_loop(DoubleQueue &dq,
       }
       break;
     };
+    case Action::TARGET_LOOP_EXIT: {
+      depMod.loop_exit();
+      break;
+    }
     case Action::FUNC_ENTRY: {
       uint32_t func_id;
       dq.unpack_32(func_id);
@@ -919,10 +924,6 @@ void consume_loop(DoubleQueue &dq,
       depMod.func_exit(func_id);
       break;
     };
-    case Action::LOOP_EXIT: {
-      depMod.loop_exit();
-      break;
-    }
 #ifdef UNIFIED_WORKFLOW
     case Action::FREE:
     case Action::LOOP_ENTRY:

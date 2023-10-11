@@ -19,9 +19,11 @@ events:
     ptr: 64
   free:
     ptr: 64
-  loop_invoc:
+  target_loop_invoc:
     # No arg
-  loop_iter:
+  target_loop_iter:
+    # No arg
+  target_loop_exit:
     # No arg
   loop_entry:
     loop_id: 32

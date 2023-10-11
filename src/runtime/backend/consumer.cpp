@@ -1,5 +1,5 @@
-#include "slamp_consume.h"
 #include "ProfilingModule.h"
+#include "slamp_consume.h"
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
@@ -32,8 +32,7 @@ void consume_loop(ProfilingModule &mod) ATTRIBUTE(noinline) {
       action();
       uint64_t end = rdtsc();
       time += end - start;
-    }
-    else {
+    } else {
       action();
     }
   };
@@ -98,10 +97,10 @@ void consume_loop(ProfilingModule &mod) ATTRIBUTE(noinline) {
     };
 
     // loop_invoc()
-    case Action::LOOP_INVOC: {
-      CONSUME_LOOP_INVOC();
+    case Action::TARGET_LOOP_INVOC: {
+      CONSUME_TARGET_LOOP_INVOC();
       if (DEBUG) {
-        std::cout << "LOOP_INVOC" << std::endl;
+        std::cout << "TARGET_LOOP_INVOC" << std::endl;
       }
 
       if (ACTION) {
@@ -111,13 +110,25 @@ void consume_loop(ProfilingModule &mod) ATTRIBUTE(noinline) {
     };
 
     // loop_iter()
-    case Action::LOOP_ITER: {
-      CONSUME_LOOP_ITER();
+    case Action::TARGET_LOOP_ITER: {
+      CONSUME_TARGET_LOOP_ITER();
       if (DEBUG) {
-        std::cout << "LOOP_ITER" << std::endl;
+        std::cout << "TARGET_LOOP_ITER" << std::endl;
       }
       if (ACTION) {
         mod.loop_iter();
+      }
+      break;
+    };
+
+    // target_loop_exit()
+    case Action::TARGET_LOOP_EXIT: {
+      CONSUME_TARGET_LOOP_EXIT();
+      if (DEBUG) {
+        std::cout << "TARGET_LOOP_EXIT " << std::endl;
+      }
+      if (ACTION) {
+        mod.loop_exit();
       }
       break;
     };

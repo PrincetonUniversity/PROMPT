@@ -62,12 +62,16 @@ static uint32_t ext_fn_inst_id = 0;
 #define PRODUCE_LOOP_ITER_CTX(loop_id)
 #endif
 
-#ifndef PRODUCE_LOOP_INVOC
-#define PRODUCE_LOOP_INVOC()
+#ifndef PRODUCE_TARGET_LOOP_INVOC
+#define PRODUCE_TARGET_LOOP_INVOC()
 #endif
 
-#ifndef PRODUCE_LOOP_ITER
-#define PRODUCE_LOOP_ITER()
+#ifndef PRODUCE_TARGET_LOOP_ITER
+#define PRODUCE_TARGET_LOOP_ITER()
+#endif
+
+#ifndef PRODUCE_TARGET_LOOP_EXIT
+#define PRODUCE_TARGET_LOOP_EXIT()
 #endif
 
 #ifndef PRODUCE_POINTS_TO_ARG
@@ -159,14 +163,14 @@ void SLAMP_loop_iter_ctx(uint32_t id) {
 }
 
 void SLAMP_loop_invocation() {
-  PRODUCE_LOOP_INVOC();
+  PRODUCE_TARGET_LOOP_INVOC();
 
   nested_level++;
   on_profiling = true;
 }
 
 void SLAMP_loop_iteration() {
-  PRODUCE_LOOP_ITER();
+  PRODUCE_TARGET_LOOP_ITER();
 
 #ifdef SAMPLING_ITER
   if (counter_iter % 100 == 0) {
@@ -180,6 +184,7 @@ void SLAMP_loop_iteration() {
 }
 
 void SLAMP_loop_exit() {
+  PRODUCE_TARGET_LOOP_EXIT();
   nested_level--;
   if (nested_level < 0) {
     // huge problem

@@ -2,7 +2,7 @@
 #include "slamp_timestamp.h"
 
 void ObjectLifetimeModule::allocate(void *addr, uint32_t instr, uint64_t size) {
-  void* shadow = smmap->allocate(addr, size);
+  void *shadow = smmap->allocate(addr, size);
 
   TS *s = (TS *)shadow;
   // log all data into sigle TS
@@ -16,15 +16,15 @@ void ObjectLifetimeModule::allocate(void *addr, uint32_t instr, uint64_t size) {
   // std::cerr << "malloc hash: " << hash << "\n";
 
   // TS ts = CREATE_TS(instr, hash, __slamp_invocation);
-  TS ts = CREATE_TS_HASH(instr, hash, slamp_iteration, slamp_iteration);
+  TS ts = CREATE_TS_HASH(instr, hash, slamp_iteration, slamp_invocation);
 
-  //8 bytes per byte TODO: can we reduce this?
+  // 8 bytes per byte TODO: can we reduce this?
   for (auto i = 0; i < size; i++)
     s[i] = ts;
 }
 
 void ObjectLifetimeModule::free(void *addr) {
-  local_write((uint64_t)addr, [&](){
+  local_write((uint64_t)addr, [&]() {
     if (addr == nullptr)
       return;
     // if we are still in the loop and the iteration is the same, mark it as
@@ -32,7 +32,7 @@ void ObjectLifetimeModule::free(void *addr) {
     TS *s = (TS *)GET_SHADOW_OL(addr, TIMESTAMP_SIZE_IN_POWER_OF_TWO);
     // auto instr = GET_INSTR(s[0]);
     // auto hash = GET_HASH(s[0]);
-    auto iteration = GET_INVOC(s[0]) & 0xF0 >> 4;
+    auto iteration = (GET_INVOC(s[0]) & 0xF0) >> 4;
     auto invocation = GET_INVOC(s[0]) & 0xF;
 
     auto instrAndHash = s[0] & 0xFFFFFFFFFFFFFF00;
@@ -58,7 +58,6 @@ void ObjectLifetimeModule::func_exit(uint32_t fcnId) {
   contextManager.popContext(contextId);
 }
 
-
 void ObjectLifetimeModule::loop_invoc() {
   slamp_iteration = 0;
   slamp_invocation++;
@@ -67,14 +66,11 @@ void ObjectLifetimeModule::loop_invoc() {
 
 void ObjectLifetimeModule::loop_iter() { slamp_iteration++; }
 
-void ObjectLifetimeModule::loop_exit() {
-  in_loop = false;
-}
-
+void ObjectLifetimeModule::loop_exit() { in_loop = false; }
 
 void ObjectLifetimeModule::init(uint32_t loop_id, uint32_t pid) {
   target_loop_id = loop_id;
-#define SIZE_8M  0x800000
+#define SIZE_8M 0x800000
   smmap->init_stack(SIZE_8M, pid);
 }
 
@@ -102,4 +98,3 @@ void ObjectLifetimeModule::fini(const char *filename) {
 
   specprivfs << " END SPEC PRIV PROFILE\n";
 }
-

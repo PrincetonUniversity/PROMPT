@@ -10,8 +10,9 @@ enum UnifiedAction : char {
   STORE,
   ALLOC,
   FREE,
-  LOOP_INVOC,
-  LOOP_ITER,
+  TARGET_LOOP_INVOC,
+  TARGET_LOOP_ITER,
+  TARGET_LOOP_EXIT,
   LOOP_ENTRY,
   LOOP_EXIT,
   LOOP_ITER_CTX,
@@ -30,7 +31,7 @@ enum UnifiedAction : char {
       exit(-1);                                                                \
     }                                                                          \
     auto queue_name = std::string("slamp_queue_") + env;                       \
-    auto segment = new bip::fixed_managed_shared_memory(                            \
+    auto segment = new bip::fixed_managed_shared_memory(                       \
         bip::open_or_create, queue_name.c_str(), sizeof(uint32_t) * QSIZE * 4, \
         (void *)(1UL << 32));                                                  \
     Queue_p dqA, dqB;                                                          \

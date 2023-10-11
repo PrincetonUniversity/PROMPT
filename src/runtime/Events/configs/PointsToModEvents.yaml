@@ -5,8 +5,8 @@ events:
   init: [loop_id, pid]
   alloc: [inst_id, size, ptr]
   free: [ptr]
-  loop_invoc: []
-  loop_iter: []
+  target_loop_invoc: []
+  target_loop_iter: []
   loop_entry: [loop_id]
   loop_exit: [loop_id]
   func_entry: [function_id]
@@ -14,4 +14,3 @@ events:
   points_to_inst: [inst_id, ptr]
   points_to_arg: [arg_id, ptr]
   finished: []
-...

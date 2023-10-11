@@ -4,8 +4,9 @@ enum UnifiedAction : char {
   STORE,
   ALLOC,
   FREE,
-  LOOP_INVOC,
-  LOOP_ITER,
+  TARGET_LOOP_INVOC,
+  TARGET_LOOP_ITER,
+  TARGET_LOOP_EXIT,
   LOOP_ENTRY,
   LOOP_EXIT,
   LOOP_ITER_CTX,
@@ -30,10 +31,10 @@ using Action = UnifiedAction;
 #define CONSUME_LOOP_ENTRY(loop_id)
 #define CONSUME_LOOP_EXIT(loop_id)
 #define CONSUME_LOOP_ITER_CTX(loop_id)
-#define CONSUME_LOOP_INVOC()
-#define CONSUME_LOOP_ITER()
+#define CONSUME_TARGET_LOOP_INVOC()
+#define CONSUME_TARGET_LOOP_ITER()
+#define CONSUME_TARGET_LOOP_EXIT()
 #define CONSUME_POINTS_TO_ARG(fn_arg_id, addr)
 #define CONSUME_POINTS_TO_INST(inst_id, addr)
 #define CONSUME_LOAD(instr, addr, value)
 #define CONSUME_STORE(instr, addr)
-
