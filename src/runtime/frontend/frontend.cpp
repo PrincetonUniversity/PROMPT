@@ -108,11 +108,15 @@ void SLAMP_init(uint32_t max_inst, uint32_t fn_id, uint32_t loop_id) {
   allocateLibcReqs((void *)&stderr, sizeof(stderr));
   allocateLibcReqs((void *)&sys_nerr, sizeof(sys_nerr));
 
-  // FIXME: a dirty way to get locale updated
-  lc_dummy = setlocale(LC_ALL, "");
-
   // TURN ON HOOKS
   hook_enabled = true;
+
+#ifdef USE_MALLOC_HOOK
+  turn_on_malloc_hook();
+#endif
+
+  // FIXME: a dirty way to get locale updated
+  lc_dummy = setlocale(LC_ALL, "");
 
   // whole program profiling
   if (loop_id == 0) {
