@@ -181,8 +181,8 @@ def drive(exe, module_idx, threads, timeout=7200):
 
         if p_producer.returncode != 0 or p_consumer.returncode != 0:
             print(f"{RED}PROMPT failed{NC}")
-            print(f"Consumer return codeL {p_consumer.returncode}")
-            print(f"Producer return codeL {p_producer.returncode}")
+            print(f"Consumer return code: {p_consumer.returncode}")
+            print(f"Producer return code: {p_producer.returncode}")
             exit(-1)
         else:
             print(f"{GREEN}PROMPT finished successfully{NC}")
