@@ -43,6 +43,8 @@ enum class UnifiedAction : char {
   ALLOC,
   REALLOC,
   FREE,
+  STACK_LIFETIME_START,
+  STACK_LIFETIME_END,
   TARGET_LOOP_INVOC,
   TARGET_LOOP_ITER,
   TARGET_LOOP_EXIT,
@@ -697,6 +699,37 @@ void consume_loop_privateer(DoubleQueue &dq, PrivateerProfiler &privateer)
       if (ACTION) {
         measure_time(alloc_time,
                      [&]() { privateer.free(reinterpret_cast<void *>(addr)); });
+      }
+      break;
+    };
+
+    case Action::STACK_LIFETIME_START: {
+      uint32_t instr;
+      uint64_t addr;
+      uint32_t size;
+      dq.unpack_24_32_64(instr, size, addr);
+
+      if (CONSUME_DEBUG) {
+        std::cout << "STACK ALLOC: " << addr << " " << size << std::endl;
+      }
+      if (ACTION) {
+        measure_time(alloc_time, [&]() {
+          privateer.stack_alloc(reinterpret_cast<void *>(addr), instr, size);
+        });
+      }
+      break;
+    };
+    case Action::STACK_LIFETIME_END: {
+      uint64_t addr;
+      dq.unpack_64(addr);
+
+      if (CONSUME_DEBUG) {
+        std::cout << "STACK FREE: " << addr << std::endl;
+      }
+      if (ACTION) {
+        measure_time(alloc_time, [&]() {
+          privateer.stack_free(reinterpret_cast<void *>(addr));
+        });
       }
       break;
     };

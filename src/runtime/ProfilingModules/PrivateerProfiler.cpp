@@ -45,7 +45,15 @@ void PrivateerProfiler::free(void *addr) {
   prof.free(nullptr, addr, false);
 }
 
-void loop_iter();
+void PrivateerProfiler::stack_alloc(void *addr, uint32_t instr, uint64_t size) {
+  Profiler &prof = Profiler::getInstance();
+  prof.report_stack(inst_names[instr], addr, 1, size);
+}
+
+void PrivateerProfiler::stack_free(void *addr) {
+  Profiler &prof = Profiler::getInstance();
+  prof.free(nullptr, addr, true);
+}
 
 void PrivateerProfiler::func_entry(uint32_t fcnId) {
   Profiler &prof = Profiler::getInstance();

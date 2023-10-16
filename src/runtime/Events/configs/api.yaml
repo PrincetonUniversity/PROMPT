@@ -24,6 +24,13 @@ events:
     new_ptr: 64
   free:
     ptr: 64
+  stack_lifetime_start:
+    inst_id: 24
+    size: 32
+    ptr: 64
+  stack_lifetime_end:
+    inst_id: 32
+    ptr: 64
   target_loop_invoc:
     # No arg
   target_loop_iter:

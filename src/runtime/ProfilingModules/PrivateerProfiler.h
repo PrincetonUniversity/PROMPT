@@ -27,6 +27,8 @@ public:
   void allocate(void *addr, uint32_t instr, uint64_t size);
   void realloc(void *old_addr, void *new_addr, uint32_t instr, uint64_t size);
   void free(void *addr);
+  void stack_alloc(void *addr, uint32_t instr, uint64_t size);
+  void stack_free(void *addr);
 
   void func_entry(uint32_t fcnId);
   void func_exit(uint32_t fcnId);

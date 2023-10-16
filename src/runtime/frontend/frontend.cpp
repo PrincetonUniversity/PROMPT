@@ -86,6 +86,14 @@ static uint32_t ext_fn_inst_id = 0;
 #define PRODUCE_POINTS_TO_INST(inst_id, addr)
 #endif
 
+#ifndef PRODUCE_STACK_LIFETIME_START
+#define PRODUCE_STACK_LIFETIME_START(inst_id, size, ptr)
+#endif
+
+#ifndef PRODUCE_STACK_LIFETIME_END
+#define PRODUCE_STACK_LIFETIME_END(inst_id, ptr)
+#endif
+
 #ifndef PRODUCE_LOAD
 #define PRODUCE_LOAD(size, instr, addr, value)
 #endif
@@ -337,5 +345,12 @@ void SLAMP_main_entry(uint32_t argc, char **argv, char **env) {}
 void SLAMP_push(const uint32_t instr) {}
 void SLAMP_pop() {}
 void SLAMP_allocated(uint64_t addr) {}
-void SLAMP_callback_stack_alloca(uint64_t, uint64_t, uint32_t, uint64_t) {}
-void SLAMP_callback_stack_free() {}
+
+void SLAMP_callback_stack_alloca(uint32_t instr, void *ptr, uint64_t array_size,
+                                 uint64_t elt_size) {
+  const uint64_t size = array_size * elt_size;
+  PRODUCE_STACK_LIFETIME_START(instr, size, (uint64_t)ptr);
+}
+void SLAMP_callback_stack_free(uint32_t instr, void *ptr) {
+  PRODUCE_STACK_LIFETIME_END(instr, (uint64_t)ptr);
+}

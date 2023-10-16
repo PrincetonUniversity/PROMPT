@@ -932,14 +932,13 @@ void SLAMP::reportStartOfAllocaLifetime(AllocaInst *inst, Instruction *start,
   // get instruction ID of lifetime start
   // Value *start_value = Namer::getInstrId(start);
 
-  Type *ptype[4] = {I64, I64, I32, I64};
+  Type *ptype[4] = {I32, I64, I64, I64};
 
   vector<Value *> args;
-  args.push_back(array_sz);
-  args.push_back(ConstantInt::get(I64, type_sz));
   args.push_back(ConstantInt::get(I32, Namer::getInstrId(start)));
   args.push_back(ptrcast);
-  // Value *params[3] = {array_sz, start_value, return_addr};
+  args.push_back(array_sz);
+  args.push_back(ConstantInt::get(I64, type_sz));
 
   FunctionType *fty = FunctionType::get(Void, ptype, false);
 
@@ -951,14 +950,25 @@ void SLAMP::reportStartOfAllocaLifetime(AllocaInst *inst, Instruction *start,
 }
 
 void SLAMP::reportEndOfAllocaLifetime(AllocaInst *inst, Instruction *end,
-                                      bool empty, Function *fcn) {
+                                      bool empty, Function *fcn, Module &m) {
   // Value *params[] = {};
   // Type *params_type[] = {};
-  FunctionType *fty = FunctionType::get(Void, false);
 
   if (!empty) {
     IRBuilder<> Builder(end);
-    CallInst *alloca_end_call = Builder.CreateCall(fty, fcn);
+
+    Value *addr = static_cast<Value *>(inst);
+    // Instruction *ptrcast = CastInst::CreatePointerCast(addr, I64);
+    // Value* return_addr = Builder.CreatePointerCast(addr, I64);
+    Value *ptrcast = Builder.CreatePointerCast(addr, I64);
+    Type *ptype[2] = {I32, I64};
+
+    vector<Value *> args;
+    args.push_back(ConstantInt::get(I32, Namer::getInstrId(end)));
+    args.push_back(ptrcast);
+    FunctionType *fty = FunctionType::get(Void, ptype, false);
+    CallInst *alloca_end_call = Builder.CreateCall(fty, fcn, args);
+    updateDebugInfo(alloca_end_call, end, m);
   } else {
     // TODO:search for terminator block
     auto *F = inst->getFunction();
@@ -1099,10 +1109,11 @@ void SLAMP::instrumentAllocas(Module &m) {
 
   auto *stack_alloca_fcn =
       cast<Function>(m.getOrInsertFunction("SLAMP_callback_stack_alloca", Void,
-                                           I64, I64, I32, I64)
+                                           I32, I64, I64, I64)
                          .getCallee());
   auto *stack_free_fcn = cast<Function>(
-      m.getOrInsertFunction("SLAMP_callback_stack_free", Void).getCallee());
+      m.getOrInsertFunction("SLAMP_callback_stack_free", Void, I32, I64)
+          .getCallee());
 
   // Collect all alloca instructions
   for (auto &f : m) {
@@ -1122,7 +1133,6 @@ void SLAMP::instrumentAllocas(Module &m) {
     // Find explicit lifetime markers
     IList starts, ends;
     ValSet avoidInfiniteRecursion;
-    bool ends_empty = 0;
     findLifetimeMarkers(i, avoidInfiniteRecursion, starts, ends);
 
     if (starts.empty())
@@ -1131,12 +1141,13 @@ void SLAMP::instrumentAllocas(Module &m) {
     for (unsigned k = 0, N = starts.size(); k < N; k++)
       reportStartOfAllocaLifetime(i, starts[k], stack_alloca_fcn, dl, m);
 
-    // TODO: how do we define end-of-fucntion?
-    if (ends.empty())
-      reportEndOfAllocaLifetime(i, NULL, 1, stack_free_fcn);
+    // FIXME: how do we define end-of-fucntion?
+    // if (ends.empty())
+    //   reportEndOfAllocaLifetime(i, NULL, 1, stack_free_fcn);
     // Report end of lifetime
+
     for (unsigned k = 0, N = ends.size(); k < N; k++)
-      reportEndOfAllocaLifetime(i, ends[k], 0, stack_free_fcn);
+      reportEndOfAllocaLifetime(i, ends[k], 0, stack_free_fcn, m);
   }
 }
 

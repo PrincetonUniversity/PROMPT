@@ -14,4 +14,6 @@ events:
   func_exit: [function_id]
   points_to_inst: [inst_id, ptr]
   points_to_arg: [arg_id, ptr]
+  stack_lifetime_start: [inst_id, size, ptr]
+  stack_lifetime_end: [ptr]
   finished: []
