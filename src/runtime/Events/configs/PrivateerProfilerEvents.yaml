@@ -1,15 +1,15 @@
 ---
-module: PointsToMod
-description: "Points-to module"
+module: PrivateerProfiler
+description: "Privateer profiler"
 events:
   init: [loop_id, pid]
+  # load: [instr, value]
   alloc: [inst_id, size, ptr]
-  realloc: [inst_id, size, new_ptr]
+  realloc: [inst_id, size, old_ptr, new_ptr]
   free: [ptr]
-  target_loop_invoc: []
-  target_loop_iter: []
   loop_entry: [loop_id]
   loop_exit: [loop_id]
+  loop_iter_ctx: [loop_id]
   func_entry: [function_id]
   func_exit: [function_id]
   points_to_inst: [inst_id, ptr]

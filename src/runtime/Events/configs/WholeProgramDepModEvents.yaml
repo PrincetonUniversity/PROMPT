@@ -6,6 +6,7 @@ events:
   load: [size, instr, addr]
   store: [size, instr, addr]
   alloc: [size, ptr]
+  realloc: [size, new_ptr]
   loop_entry: [loop_id]
   loop_iter_ctx: []
   loop_exit: [loop_id]

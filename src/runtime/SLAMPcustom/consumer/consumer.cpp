@@ -12,6 +12,7 @@
 #include "ProfilingModules/LoadedValueModule.h"
 #include "ProfilingModules/ObjectLifetimeModule.h"
 #include "ProfilingModules/PointsToModule.h"
+#include "ProfilingModules/PrivateerProfiler.h"
 #include "ProfilingModules/WholeProgramDependenceModule.h"
 #include "sw_queue_astream.h"
 
@@ -40,6 +41,7 @@ enum class UnifiedAction : char {
   LOAD,
   STORE,
   ALLOC,
+  REALLOC,
   FREE,
   TARGET_LOOP_INVOC,
   TARGET_LOOP_ITER,
@@ -60,7 +62,8 @@ enum AvailableModules {
   LOADED_VALUE_MODULE = 2,
   OBJECT_LIFETIME_MODULE = 3,
   WHOLE_PROGRAM_DEPENDENCE_MODULE = 4,
-  NUM_MODULES = 5
+  PRIVATEER_PROFILER = 5,
+  NUM_MODULES = 6
 };
 constexpr AvailableModules DEFAULT_MODULE = DEPENDENCE_MODULE;
 constexpr unsigned DEFAULT_THREAD_COUNT = 8;
@@ -82,24 +85,24 @@ static uint64_t alloc_time(0);
 // create segment and corresponding allocator
 bip::fixed_managed_shared_memory *segment;
 
+// measure time with lambda action
+auto measure_time = [](uint64_t &time, auto action) {
+  // measure time with rdtsc
+  if (MEASURE_TIME) {
+    uint64_t start = rdtsc();
+    action();
+    uint64_t end = rdtsc();
+    time += end - start;
+  } else {
+    action();
+  }
+};
+
 void consume_loop_lv(DoubleQueue &dq,
                      LoadedValueModule &lvMod) CONSUME_LOOP_ATTRIBUTES {
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
   uint32_t loop_id;
-
-  // measure time with lambda action
-  auto measure_time = [](uint64_t &time, auto action) {
-    // measure time with rdtsc
-    if (MEASURE_TIME) {
-      uint64_t start = rdtsc();
-      action();
-      uint64_t end = rdtsc();
-      time += end - start;
-    } else {
-      action();
-    }
-  };
 
   bool finished = false;
   while (true) {
@@ -214,19 +217,6 @@ void consume_loop_ol(DoubleQueue &dq,
   uint64_t counter = 0;
   uint32_t loop_id;
 
-  // measure time with lambda action
-  auto measure_time = [](uint64_t &time, auto action) {
-    // measure time with rdtsc
-    if (MEASURE_TIME) {
-      uint64_t start = rdtsc();
-      action();
-      uint64_t end = rdtsc();
-      time += end - start;
-    } else {
-      action();
-    }
-  };
-
   bool finished = false;
   while (true) {
     dq.check();
@@ -261,6 +251,23 @@ void consume_loop_ol(DoubleQueue &dq,
 
       if (CONSUME_DEBUG) {
         std::cout << "ALLOC: " << addr << " " << size << std::endl;
+      }
+      if (ACTION) {
+        measure_time(alloc_time, [&]() {
+          olMod.allocate(reinterpret_cast<void *>(addr), instr, size);
+        });
+      }
+      break;
+    };
+    case Action::REALLOC: {
+      // FIXME: handle realloc
+      uint32_t instr;
+      uint64_t addr;
+      uint32_t size;
+      dq.unpack_24_32_64(instr, size, addr);
+
+      if (CONSUME_DEBUG) {
+        std::cout << "REALLOC: " << addr << " " << size << std::endl;
       }
       if (ACTION) {
         measure_time(alloc_time, [&]() {
@@ -396,19 +403,6 @@ void consume_loop_pt(DoubleQueue &dq,
   uint64_t counter = 0;
   uint32_t loop_id;
 
-  // measure time with lambda action
-  auto measure_time = [](uint64_t &time, auto action) {
-    // measure time with rdtsc
-    if (MEASURE_TIME) {
-      uint64_t start = rdtsc();
-      action();
-      uint64_t end = rdtsc();
-      time += end - start;
-    } else {
-      action();
-    }
-  };
-
   bool finished = false;
   while (true) {
     dq.check();
@@ -436,6 +430,23 @@ void consume_loop_pt(DoubleQueue &dq,
       break;
     };
     case Action::ALLOC: {
+      uint32_t instr;
+      uint64_t addr;
+      uint32_t size;
+      dq.unpack_24_32_64(instr, size, addr);
+
+      if (CONSUME_DEBUG) {
+        std::cout << "ALLOC: " << addr << " " << size << std::endl;
+      }
+      if (ACTION) {
+        measure_time(alloc_time, [&]() {
+          ptMod.allocate(reinterpret_cast<void *>(addr), instr, size);
+        });
+      }
+      break;
+    };
+    case Action::REALLOC: {
+      // FIXME: handle realloc
       uint32_t instr;
       uint64_t addr;
       uint32_t size;
@@ -583,10 +594,6 @@ void consume_loop_pt(DoubleQueue &dq,
       }
       finished = true;
 
-      // if (ACTION) {
-      // ptMod.fini("ptlog.txt");
-      // }
-
       break;
     };
     default:
@@ -614,25 +621,229 @@ void consume_loop_pt(DoubleQueue &dq,
   }
 }
 
+void consume_loop_privateer(DoubleQueue &dq, PrivateerProfiler &privateer)
+    CONSUME_LOOP_ATTRIBUTES {
+  uint64_t rdtsc_start = 0;
+  uint64_t counter = 0;
+  uint32_t loop_id;
+
+  bool finished = false;
+  while (true) {
+    dq.check();
+    uint32_t v;
+    v = dq.consumePacket();
+    counter++;
+
+    // convert v to action
+    auto action = static_cast<Action>(v);
+
+    switch (action) {
+    case Action::INIT: {
+      uint32_t pid;
+      // loop_id = (uint32_t)dq.consume();
+      // pid = (uint32_t)dq.consume();
+      dq.unpack_32_32(loop_id, pid);
+      rdtsc_start = rdtsc();
+
+      if (CONSUME_DEBUG) {
+        std::cout << "INIT: " << loop_id << " " << pid << std::endl;
+      }
+      if (ACTION) {
+        privateer.init(loop_id, pid);
+      }
+      break;
+    };
+    case Action::ALLOC: {
+      uint32_t instr;
+      uint64_t addr;
+      uint32_t size;
+      dq.unpack_24_32_64(instr, size, addr);
+
+      if (CONSUME_DEBUG) {
+        std::cout << "ALLOC: " << addr << " " << size << std::endl;
+      }
+      if (ACTION) {
+        measure_time(alloc_time, [&]() {
+          privateer.allocate(reinterpret_cast<void *>(addr), instr, size);
+        });
+      }
+      break;
+    };
+    case Action::REALLOC: {
+      uint32_t instr;
+      uint64_t old_addr, new_addr;
+      uint32_t size;
+      dq.unpack_24_32_64_64(instr, size, old_addr, new_addr);
+
+      if (CONSUME_DEBUG) {
+        std::cout << "REALLOC: " << old_addr << " " << new_addr << " " << size
+                  << std::endl;
+      }
+      if (ACTION) {
+        measure_time(alloc_time, [&]() {
+          privateer.realloc(reinterpret_cast<void *>(old_addr),
+                            reinterpret_cast<void *>(new_addr), instr, size);
+        });
+      }
+      break;
+    };
+    case Action::FREE: {
+      uint64_t addr;
+      dq.unpack_64(addr);
+
+      if (CONSUME_DEBUG) {
+        std::cout << "FREE: " << addr << std::endl;
+      }
+      if (ACTION) {
+        measure_time(alloc_time,
+                     [&]() { privateer.free(reinterpret_cast<void *>(addr)); });
+      }
+      break;
+    };
+    case Action::LOOP_ENTRY: {
+      uint32_t loop_id;
+      dq.unpack_32(loop_id);
+      if (CONSUME_DEBUG) {
+        std::cout << "LOOP_ENTRY: " << loop_id << std::endl;
+      }
+      if (ACTION) {
+        privateer.loop_entry(loop_id);
+      }
+      break;
+    };
+    case Action::LOOP_EXIT: {
+      uint32_t loop_id;
+      dq.unpack_32(loop_id);
+      if (CONSUME_DEBUG) {
+        std::cout << "LOOP_EXIT: " << loop_id << std::endl;
+      }
+      if (ACTION) {
+        privateer.loop_exit(loop_id);
+      }
+      break;
+    };
+    case Action::LOOP_ITER_CTX: {
+      uint32_t loop_id;
+      dq.unpack_32(loop_id);
+      if (CONSUME_DEBUG) {
+        std::cout << "LOOP_ITER_CTX: " << loop_id << std::endl;
+      }
+      if (ACTION) {
+        privateer.loop_iter(loop_id);
+      }
+      break;
+    };
+    case Action::FUNC_ENTRY: {
+      uint32_t func_id;
+      dq.unpack_32(func_id);
+      if (CONSUME_DEBUG) {
+        std::cout << "FUNC_ENTRY: " << func_id << std::endl;
+      }
+      if (ACTION) {
+        privateer.func_entry(func_id);
+      }
+      break;
+    };
+    case Action::FUNC_EXIT: {
+      uint32_t func_id;
+      dq.unpack_32(func_id);
+      if (CONSUME_DEBUG) {
+        std::cout << "FUNC_EXIT: " << func_id << std::endl;
+      }
+      if (ACTION) {
+        privateer.func_exit(func_id);
+      }
+      break;
+    };
+
+    case Action::POINTS_TO_ARG: {
+      uint32_t fcnId;
+      uint32_t argId;
+      uint64_t addr;
+      dq.unpack_32_64(fcnId, addr);
+      // break fcnId into argId and fcnId, 16 bit each
+      argId = fcnId & 0xFFFF;
+      fcnId = fcnId >> 16;
+      if (CONSUME_DEBUG) {
+        std::cout << "POINTS_TO_ARG: " << fcnId << " " << argId << " " << addr
+                  << std::endl;
+      }
+
+      if (ACTION) {
+        privateer.points_to_arg(fcnId, argId, reinterpret_cast<void *>(addr));
+      }
+      break;
+    };
+
+    case Action::POINTS_TO_INST: {
+      uint32_t instId;
+      uint64_t addr;
+      dq.unpack_32_64(instId, addr);
+      if (CONSUME_DEBUG) {
+        std::cout << "POINTS_TO_INST: " << instId << " " << addr << std::endl;
+      }
+      if (ACTION) {
+        privateer.points_to_inst(instId, reinterpret_cast<void *>(addr));
+      }
+      break;
+    };
+#ifdef UNIFIED_WORKFLOW
+    case Action::LOAD:
+      dq.check();
+      dq.consumePacket();
+      break;
+    case Action::STORE:
+    case Action::LOOP_ITER_CTX:
+      break;
+#endif
+    case Action::FINISHED: {
+      uint64_t rdtsc_end = rdtsc();
+      // total cycles
+      uint64_t total_cycles = rdtsc_end - rdtsc_start;
+      std::cout << "Finished loop: " << loop_id << " after " << counter
+                << " events" << std::endl;
+      // print time in seconds
+      std::cout << "Total time: " << total_cycles / 2.6e9 << " s" << std::endl;
+      if (MEASURE_TIME) {
+        std::cout << "Load time: " << load_time / 2.6e9 << " s" << std::endl;
+        std::cout << "Store time: " << store_time / 2.6e9 << " s" << std::endl;
+        std::cout << "Alloc time: " << alloc_time / 2.6e9 << " s" << std::endl;
+      }
+      finished = true;
+
+      if (ACTION) {
+        privateer.fini("privateer.txt");
+      }
+
+      break;
+    };
+    default:
+      std::cout << "Unknown action: " << (uint64_t)v << std::endl;
+
+      std::cout << "Is ready to read?:" << dq.qNow->ready_to_read << " "
+                << "Is ready to write?:" << dq.qNow->ready_to_write
+                << std::endl;
+      std::cout << "Index: " << dq.index << " Size:" << dq.qNow->size
+                << std::endl;
+
+      for (int i = 0; i < 101; i++) {
+        std::cout << dq.qNow->data[dq.index - 100 + i] << " ";
+      }
+      exit(-1);
+    }
+
+    if (finished) {
+      break;
+    }
+  }
+}
+
 void consume_loop_whole_program_dep(DoubleQueue &dq,
                                     WholeProgramDependenceModule &depMod)
     CONSUME_LOOP_ATTRIBUTES {
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
   uint32_t loop_id;
-
-  // measure time with lambda action
-  auto measure_time = [](uint64_t &time, auto action) {
-    // measure time with rdtsc
-    if (MEASURE_TIME) {
-      uint64_t start = rdtsc();
-      action();
-      uint64_t end = rdtsc();
-      time += end - start;
-    } else {
-      action();
-    }
-  };
 
   bool finished = false;
   while (true) {
@@ -790,19 +1001,6 @@ void consume_loop(DoubleQueue &dq,
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
   uint32_t loop_id;
-
-  // measure time with lambda action
-  auto measure_time = [](uint64_t &time, auto action) {
-    // measure time with rdtsc
-    if (MEASURE_TIME) {
-      uint64_t start = rdtsc();
-      action();
-      uint64_t end = rdtsc();
-      time += end - start;
-    } else {
-      action();
-    }
-  };
 
   bool finished = false;
   while (true) {
@@ -1298,6 +1496,7 @@ int main(int argc, char **argv) {
   }
 
   if (MODULE == OBJECT_LIFETIME_MODULE) {
+    assert(running_threads == 1 && "Object lifetime only supports 1 thread");
     DoubleQueue dq(dqA, dqB, true, running_threads, m, cv);
 
     ObjectLifetimeModule olMod(0, 0);
@@ -1340,6 +1539,14 @@ int main(int argc, char **argv) {
     for (unsigned i = 0; i < THREAD_COUNT; i++) {
       delete lvMods[i];
     }
+  }
+
+  if (MODULE == PRIVATEER_PROFILER) {
+    assert(running_threads == 1 && "Privateer profiler only supports 1 thread");
+    DoubleQueue dq(dqA, dqB, true, running_threads, m, cv);
+
+    PrivateerProfiler privateerMod(0, 0);
+    consume_loop_privateer(dq, privateerMod);
   }
 #endif
 

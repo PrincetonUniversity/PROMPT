@@ -4,6 +4,7 @@ description: "Object Lifetime Module"
 events:
   init: [loop_id, pid]
   alloc: [inst_id, size, ptr]
+  realloc: [inst_id, size, new_ptr]
   free: [ptr]
   target_loop_invoc: []
   target_loop_iter: []

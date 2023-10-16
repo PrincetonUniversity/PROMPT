@@ -3,6 +3,7 @@ enum UnifiedAction : char {
   LOAD,
   STORE,
   ALLOC,
+  REALLOC,
   FREE,
   TARGET_LOOP_INVOC,
   TARGET_LOOP_ITER,
@@ -24,6 +25,7 @@ using Action = UnifiedAction;
 #define CONSUME_PACKET(action)
 #define CONSUME_INIT(loop_id, pid)
 #define CONSUME_ALLOC(inst_id, size, addr)
+#define CONSUME_REALLOC(inst_id, size, old_addr, new_addr)
 #define CONSUME_FREE(addr)
 #define CONSUME_FINISHED()
 #define CONSUME_FUNC_ENTRY(fn_id)

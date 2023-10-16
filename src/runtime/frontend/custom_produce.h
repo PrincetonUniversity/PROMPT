@@ -9,6 +9,7 @@ enum UnifiedAction : char {
   LOAD,
   STORE,
   ALLOC,
+  REALLOC,
   FREE,
   TARGET_LOOP_INVOC,
   TARGET_LOOP_ITER,

@@ -16,7 +16,14 @@ if(RUNTIME_LTO)
 endif()
 
 # Generate headers for each configuration
-set(CONFIGS "wp-dep" "dep" "dep-context" "ol" "pt" "lv")
+set(CONFIGS
+    "wp-dep"
+    "dep"
+    "dep-context"
+    "ol"
+    "pt"
+    "lv"
+    "privateer")
 foreach(CONFIG ${CONFIGS})
   set(CONFIG_BUILD_DIR ${CMAKE_BINARY_DIR}/${CONFIG})
   set(HEADER_PATH ${CONFIG_BUILD_DIR}/slamp_produce.h)

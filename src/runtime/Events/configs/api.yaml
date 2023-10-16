@@ -17,6 +17,11 @@ events:
     inst_id: 24 # FIXME: this is problematic
     size: 32
     ptr: 64
+  realloc:
+    inst_id: 24 # FIXME: this is problematic
+    size: 32
+    old_ptr: 64
+    new_ptr: 64
   free:
     ptr: 64
   target_loop_invoc:
@@ -30,7 +35,7 @@ events:
   loop_exit:
     loop_id: 32
   loop_iter_ctx:
-    # loop_id: 32
+    loop_id: 32
   func_entry:
     function_id: 32
   func_exit:

@@ -86,7 +86,7 @@ if __name__ == "__main__":
         "-m",
         "--module",
         help="Module to generate frontend for",
-        choices=["wp-dep", "dep", "dep-context", "ol", "pt", "lv"],
+        choices=["wp-dep", "dep", "dep-context", "ol", "pt", "lv", "privateer"],
     )
     parser.add_argument("--config-dir", help="Config directory", required=True)
     parser.add_argument("-o", "--output", help="Output file")
@@ -101,6 +101,7 @@ if __name__ == "__main__":
         "ol": "ObjectLifetimeModEvents.yaml",
         "pt": "PointsToModEvents.yaml",
         "lv": "LoadedValueModEvents.yaml",
+        "privateer": "PrivateerProfilerEvents.yaml",
     }
 
     # check if config dir is valid

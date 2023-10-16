@@ -196,6 +196,15 @@ struct DoubleQueue {
     c = _mm_extract_epi64(packet, 1);
   }
 
+  void unpack_24_32_64_64(uint32_t &a, uint32_t &b, uint64_t &c, uint64_t &d) {
+    uint32_t tmp = _mm_extract_epi32(packet, 0);
+    a = tmp >> 8;
+    b = _mm_extract_epi32(packet, 1);
+    c = _mm_extract_epi64(packet, 1);
+    consumePacket();
+    d = _mm_extract_epi64(packet, 0);
+  }
+
   void unpack_32_32(uint32_t &a, uint32_t &b) {
     // a = packet[1];
     // b = packet[2];
@@ -301,6 +310,28 @@ struct DoubleQueue_Producer {
     *((uint64_t *)&data[index + 2]) = w;
 #endif
     index += 4;
+
+    if (index >= QSIZE_GUARD) [[unlikely]] {
+      produce_wait();
+    }
+  }
+
+  void produce_8_24_32_64_64(uint8_t x, uint32_t y, uint32_t z, uint64_t w,
+                             uint64_t v) ATTRIBUTE(noinline) {
+    uint32_t xy = (y << 8) | x;
+#ifdef MM_STREAM
+    // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(z, w, y,
+    // x));
+    _mm_stream_si32((int *)&data[index], xy);
+    _mm_stream_si32((int *)&data[index + 1], z);
+    _mm_stream_si64((long long *)&data[index + 2], w);
+    _mm_stream_si64((long long *)&data[index + 4], v);
+#else
+    data[index] = xy;
+    data[index + 1] = z;
+    *((uint64_t *)&data[index + 2]) = w;
+#endif
+    index += 8;
 
     if (index >= QSIZE_GUARD) [[unlikely]] {
       produce_wait();
@@ -493,6 +524,28 @@ void produce_8_24_32_64(uint8_t x, uint32_t y, uint32_t z, uint64_t w)
   *((uint64_t *)&data[index + 2]) = w;
 #endif
   dq_index += 4;
+
+  if (dq_index >= QSIZE_GUARD) [[unlikely]] {
+    produce_wait();
+  }
+}
+
+void produce_8_24_32_64_64(uint8_t x, uint32_t y, uint32_t z, uint64_t w,
+                           uint64_t v) ATTRIBUTE(noinline) {
+  uint32_t xy = (y << 8) | x;
+#ifdef MM_STREAM
+  // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(z, w, y,
+  // x));
+  _mm_stream_si32((int *)&dq_data[dq_index], xy);
+  _mm_stream_si32((int *)&dq_data[dq_index + 1], z);
+  _mm_stream_si64((long long *)&dq_data[dq_index + 2], w);
+  _mm_stream_si64((long long *)&dq_data[dq_index + 4], v);
+#else
+  dq_data[dq_index] = xy;
+  dq_data[dq_index + 1] = z;
+  *((uint64_t *)&dq_data[dq_index + 2]) = w;
+#endif
+  dq_index += 8;
 
   if (dq_index >= QSIZE_GUARD) [[unlikely]] {
     produce_wait();

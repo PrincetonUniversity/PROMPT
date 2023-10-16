@@ -6,6 +6,7 @@ events:
   load: [instr, addr]
   store: [instr, addr]
   alloc: [size, ptr]
+  realloc: [size, new_ptr]
   target_loop_invoc: []
   target_loop_iter: []
   # func_entry: [function_id] # optional if tracking context

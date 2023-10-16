@@ -201,7 +201,7 @@ if __name__ == "__main__":
         "--module",
         help="The module to run",
         default="dep",
-        choices=["dep", "lv", "pt", "ol", "wp-dep", "dep-context"],
+        choices=["dep", "lv", "pt", "ol", "wp-dep", "dep-context", "privateer"],
     )
 
     argparser.add_argument("-t", "--threads", help="Number of threads", default=1)
@@ -210,7 +210,7 @@ if __name__ == "__main__":
     argparser.add_argument("--skip-build", help="Skip build", action="store_true")
     argparser.add_argument("--skip-run", help="Skip run", action="store_true")
     argparser.add_argument("--output", help="Output file")
-    argparser.add_argument("--timeout", help="Timeout", default=7200)
+    argparser.add_argument("--timeout", help="Timeout", default=72000)
     argparser.add_argument("--exe", help="The executable to run", default=None)
     argparser.add_argument(
         "--runtime-file", help="The file to store runtime", default="slamp.time"
@@ -257,6 +257,7 @@ if __name__ == "__main__":
         "lv": 2,
         "ol": 3,
         "wp-dep": 4,
+        "privateer": 5,
     }
     module_index = module_to_index[args.module]
     if not args.skip_run:

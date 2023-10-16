@@ -34,6 +34,10 @@ static uint32_t ext_fn_inst_id = 0;
 #define PRODUCE_ALLOC(inst_id, size, addr)
 #endif
 
+#ifndef PRODUCE_REALLOC
+#define PRODUCE_REALLOC(inst_id, size, old_addr, new_addr)
+#endif
+
 #ifndef PRODUCE_FREE
 #define PRODUCE_FREE(addr)
 #endif
@@ -158,7 +162,7 @@ void SLAMP_enter_loop(uint32_t id) { PRODUCE_LOOP_ENTRY(id); }
 void SLAMP_exit_loop(uint32_t id) { PRODUCE_LOOP_EXIT(id); }
 
 void SLAMP_loop_iter_ctx(uint32_t id) {
-  PRODUCE_LOOP_ITER_CTX();
+  PRODUCE_LOOP_ITER_CTX(id);
   // produce_32_32(LOOP_ITER_CTX, id);
 }
 
@@ -320,7 +324,9 @@ void realloc_callback(void *new_ptr, void *ptr, size_t size) {
   // differently
   // TODO: the old pointer might be freed. Need to check whether the two
   // pointers are the same
-  PRODUCE_ALLOC(ext_fn_inst_id, size, (uint64_t)new_ptr);
+
+  // PRODUCE_ALLOC(ext_fn_inst_id, size, (uint64_t)new_ptr);
+  PRODUCE_REALLOC(ext_fn_inst_id, size, (uint64_t)ptr, (uint64_t)new_ptr);
 }
 void memalign_callback(void *ptr, size_t alignment, size_t size) {
   PRODUCE_ALLOC(ext_fn_inst_id, size, (uint64_t)ptr);
