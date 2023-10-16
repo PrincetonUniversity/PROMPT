@@ -1087,6 +1087,22 @@ void consume_loop(DoubleQueue &dq,
       }
       break;
     };
+    case Action::REALLOC: {
+      // FIXME: handle realloc
+      uint64_t addr;
+      uint32_t size;
+      dq.unpack_32_64(size, addr);
+
+      if (CONSUME_DEBUG) {
+        std::cout << "ALLOC: " << addr << " " << size << std::endl;
+      }
+      if (ACTION) {
+        measure_time(alloc_time, [&]() {
+          depMod.allocate(reinterpret_cast<void *>(addr), size);
+        });
+      }
+      break;
+    };
     case Action::TARGET_LOOP_INVOC: {
       if (CONSUME_DEBUG) {
         std::cout << "LOOP_INVOC" << std::endl;
