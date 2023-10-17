@@ -1,19 +1,24 @@
 #include "PrivateerProfiler.h"
 #include "privateer/profiler.h"
 
-static const char *inst_names[50000];
-static const char *fn_names[50000];
-static const char *loop_names[50000];
+// FIXME: a hack to hold the names
+static const char *inst_names[500000];
+static const char *fn_names[500000];
+static const char *loop_names[500000];
 
 void PrivateerProfiler::init(uint32_t loop_id, uint32_t pid) {
   Profiler &prof = Profiler::getInstance();
   prof.begin();
 
+  // allocate chunks
+  auto inst_name_chunk = new char[500000 * 16];
+  auto fn_name_chunk = new char[500000 * 16];
+  auto loop_name_chunk = new char[500000 * 16];
   for (auto i = 0; i < 50000; i++) {
     // create a new string "inst_{i}" and store it in inst_names[i]
-    auto inst_name = new char[16];
-    auto fn_name = new char[16];
-    auto loop_name = new char[16];
+    auto inst_name = inst_name_chunk + (i * 16);
+    auto fn_name = fn_name_chunk + (i * 16);
+    auto loop_name = loop_name_chunk + (i * 16);
     sprintf(inst_name, "inst_%d", i);
     sprintf(fn_name, "fn_%d", i);
     sprintf(loop_name, "loop_%d", i);
