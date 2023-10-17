@@ -24,6 +24,8 @@ public:
   void init(uint32_t loop_id, uint32_t pid);
   void fini(const char *filename);
 
+  void load(uint32_t instr, uint64_t value);
+
   void allocate(void *addr, uint32_t instr, uint64_t size);
   void realloc(void *old_addr, void *new_addr, uint32_t instr, uint64_t size);
   void free(void *addr);
@@ -35,6 +37,9 @@ public:
   void loop_entry(uint32_t loopId);
   void loop_exit(uint32_t loopId);
   void loop_iter(uint32_t loopId);
+
+  void predict_int(uint32_t instId, uint64_t value);
+  void predict_ptr(uint32_t instId, void *ptr);
 
   void points_to_inst(uint32_t instId, void *ptr);
   void points_to_arg(uint32_t fcnId, uint32_t argId, void *ptr);

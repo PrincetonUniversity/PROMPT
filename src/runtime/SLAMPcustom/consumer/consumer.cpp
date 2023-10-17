@@ -655,6 +655,20 @@ void consume_loop_privateer(DoubleQueue &dq, PrivateerProfiler &privateer)
       }
       break;
     };
+    case Action::LOAD: {
+      uint32_t instr;
+      uint64_t value;
+
+      if (CONSUME_DEBUG) {
+        std::cout << "LOAD: " << instr << " " << value << std::endl;
+      }
+      dq.unpack_32_64(instr, value);
+
+      if (ACTION) {
+        measure_time(load_time, [&]() { privateer.load(instr, value); });
+      }
+      break;
+    };
     case Action::ALLOC: {
       uint32_t instr;
       uint64_t addr;

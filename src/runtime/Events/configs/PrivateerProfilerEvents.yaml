@@ -3,7 +3,7 @@ module: PrivateerProfiler
 description: "Privateer profiler"
 events:
   init: [loop_id, pid]
-  # load: [instr, value]
+  load: [instr, value]
   alloc: [inst_id, size, ptr]
   realloc: [inst_id, size, old_ptr, new_ptr]
   free: [ptr]

@@ -90,7 +90,19 @@ void PrivateerProfiler::points_to_inst(uint32_t instId, void *ptr) {
   Profiler &prof = Profiler::getInstance();
 
   prof.find_underlying_object(inst_names[instId], ptr);
+  prof.predict_ptr(inst_names[instId], ptr);
 }
 
 void PrivateerProfiler::points_to_arg(uint32_t fcnId, uint32_t argId,
-                                      void *ptr) {}
+                                      void *ptr) {
+  // FIXME: implement this
+}
+
+void PrivateerProfiler::load(uint32_t instr, uint64_t value) {
+  Profiler &prof = Profiler::getInstance();
+  prof.predict_int(inst_names[instr], value);
+}
+
+void PrivateerProfiler::predict_int(uint32_t instId, uint64_t value) {}
+
+void PrivateerProfiler::predict_ptr(uint32_t instId, void *ptr) {}
