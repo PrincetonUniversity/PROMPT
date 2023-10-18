@@ -11,10 +11,10 @@ void PrivateerProfiler::init(uint32_t loop_id, uint32_t pid) {
   prof.begin();
 
   // allocate chunks
-  auto inst_name_chunk = new char[500000 * 16];
-  auto fn_name_chunk = new char[500000 * 16];
-  auto loop_name_chunk = new char[500000 * 16];
-  for (auto i = 0; i < 50000; i++) {
+  auto inst_name_chunk = (char *)malloc(500000 * 16);
+  auto fn_name_chunk = (char *)malloc(500000 * 16);
+  auto loop_name_chunk = (char *)malloc(500000 * 16);
+  for (auto i = 0; i < 500000; i++) {
     // create a new string "inst_{i}" and store it in inst_names[i]
     auto inst_name = inst_name_chunk + (i * 16);
     auto fn_name = fn_name_chunk + (i * 16);

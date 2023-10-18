@@ -474,12 +474,12 @@ bool SLAMP::runOnModule(Module &m) {
     instrumentLoopStartStop(m, this->target_loop);
   }
 
-  instrumentLoopStartStopForAll(m);
   if (TargetLoopEnabled) {
     instrumentInstructions(m, this->target_loop);
   } else {
     instrumentInstructions(m);
   }
+  instrumentLoopStartStopForAll(m);
 
   // insert implementations for runtime wrapper functions, which calls the
   // binary standard function
@@ -508,9 +508,8 @@ bool SLAMP::findTarget(Module &m) {
       if (header == nullptr)
         break;
 
-      // FIXME: double check this is valid
+      // FIXME: dangerous, this loop pointer may not persist
       LoopInfo &loopinfo = getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
-
       this->target_loop = loopinfo.getLoopFor(header);
 
       if (!this->target_loop)
