@@ -273,7 +273,11 @@ void consume_loop_ol(DoubleQueue &dq,
       }
       if (ACTION) {
         measure_time(alloc_time, [&]() {
-          olMod.allocate(reinterpret_cast<void *>(addr), instr, size);
+          if (size == 0) {
+            olMod.free(reinterpret_cast<void *>(addr));
+          } else {
+            olMod.allocate(reinterpret_cast<void *>(addr), instr, size);
+          }
         });
       }
       break;
