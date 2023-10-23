@@ -2,6 +2,9 @@
 
 ### Build
 
+Need to use LLVM/Clang as the compiler for the support of LLVM.
+Need to make sure LLVMgold is installed.
+
 ```
 cd PROMPT
 export PATH=${llvm install bin directory}:$PATH
