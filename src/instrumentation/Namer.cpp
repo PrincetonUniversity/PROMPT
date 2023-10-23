@@ -5,39 +5,50 @@
  *
  * */
 
-#define DEBUG_TYPE "namer"
-
 // LLVM header files
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Transforms/Scalar.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/PassPlugin.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Scalar.h"
 
 #include "Metadata.h"
 #include <list>
 
-namespace liberty {
-char Namer::ID = 0;
-namespace {
-static RegisterPass<Namer>
-    // FIXME: avoid conflict
-    RP("prompt-metadata-namer", "Generate unique IDs in Metadata for each instruction",
-       false, false);
-}
+#define DEBUG_TYPE "namer"
 
+// extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
+// llvmGetPassPluginInfo() {
+//   return {LLVM_PLUGIN_API_VERSION, "prompt-namer", "v1.0",
+//           [](llvm::PassBuilder &PB) {
+//             PB.registerPipelineParsingCallback(
+//                 [](llvm::StringRef Name, llvm::ModulePassManager &MPM,
+//                    llvm::ArrayRef<llvm::PassBuilder::PipelineElement>) {
+//                   if (Name == "prompt-namer") {
+//                     MPM.addPass(liberty::Namer());
+//                     return true; // Successfully handled the given pipeline
+//                     name
+//                   }
+//                   return false; // Didn't handle the given pipeline name
+//                 });
+//           }};
+// }
+
+namespace liberty {
 
 static std::string NamerMeta = "namer";
 enum NamerMetaID {
@@ -46,7 +57,7 @@ enum NamerMetaID {
   INST_ID = 2,
 };
 
-Namer::Namer() : ModulePass(ID) {}
+Namer::Namer() = default;
 
 Namer::~Namer() { reset(); }
 
@@ -57,12 +68,8 @@ void Namer::reset() {
   instrId = 0;
 }
 
-void Namer::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<LoopInfoWrapperPass>();
-  AU.setPreservesAll();
-}
-
-bool Namer::runOnModule(Module &M) {
+llvm::PreservedAnalyses Namer::run(llvm::Module &M,
+                                   llvm::ModuleAnalysisManager &MAM) {
   reset();
   pM = &M;
   LLVM_DEBUG(errs() << "\n\n\nEntering Metadata-Namer.\n");
@@ -72,13 +79,14 @@ bool Namer::runOnModule(Module &M) {
   FunList &funcs = M.getFunctionList();
   bool modified = false;
 
-  for (auto & func : funcs) {
+  for (auto &func : funcs) {
     auto *f = (Function *)&func;
     modified |= runOnFunction(*f);
     funcId++;
   }
 
-  return modified;
+  // FIXME: this might not be true; not a big deal in the current workflow
+  return llvm::PreservedAnalyses::all();
 }
 
 bool Namer::runOnFunction(Function &F) {
@@ -87,14 +95,14 @@ bool Namer::runOnFunction(Function &F) {
 
   bool modified = false;
 
-  for (auto & bb : F) {
+  for (auto &bb : F) {
 
     if (bb.getName().empty()) {
       bb.setName("bbName");
       modified = true;
     }
 
-    for (auto & I : bb) {
+    for (auto &I : bb) {
       Instruction *inst = &I;
 
       Value *fcnV = ConstantInt::get(Type::getInt32Ty(context), funcId);
@@ -111,7 +119,7 @@ bool Namer::runOnFunction(Function &F) {
       //  It is wasteful, and nobody uses it.
       //  It creates *real* scalability problems down road. -NPJ
       //				NamedMDNode *namedMDNode =
-      //pM->getOrInsertNamedMetadata("liberty.namer");
+      // pM->getOrInsertNamedMetadata("liberty.namer");
       //				namedMDNode->addOperand(mdNode);
 
       inst->setMetadata(NamerMeta, mdNode);
@@ -136,13 +144,9 @@ Value *getIdValue(const Instruction *I, NamerMetaID id) {
   return ConstantInt::get(vFB->getType(), f_v);
 }
 
-Value *Namer::getFuncIdValue(Instruction *I) {
-  return getIdValue(I, FCN_ID);
-}
+Value *Namer::getFuncIdValue(Instruction *I) { return getIdValue(I, FCN_ID); }
 
-Value *Namer::getBlkIdValue(Instruction *I) {
-  return getIdValue(I, BB_ID);
-}
+Value *Namer::getBlkIdValue(Instruction *I) { return getIdValue(I, BB_ID); }
 
 Value *Namer::getInstrIdValue(Instruction *I) {
   return getInstrIdValue((const Instruction *)I);

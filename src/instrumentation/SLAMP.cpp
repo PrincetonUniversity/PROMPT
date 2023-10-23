@@ -3,20 +3,14 @@
 // Single Loop Aware Memory Profiler.
 //
 
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instructions.h"
 #include <cstdint>
-#define DEBUG_TYPE "SLAMP"
 
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Support/raw_ostream.h"
-
-// #define USE_PDG
-
-#ifdef USE_PDG
-#include "scaf/SpeculationModules/PDGBuilder.hpp"
-#include "scaf/Utilities/PDGQueries.h"
-#endif
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/CFG.h"
@@ -24,6 +18,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/PassPlugin.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
@@ -41,49 +37,45 @@
 #include <sstream>
 #include <vector>
 
+#define DEBUG_TYPE "SLAMP"
+
 #define INST_ID_BOUND (((uint32_t)1 << 20) - 1)
 
 using namespace std;
 using namespace llvm;
 
-static std::map<std::string, Constant *> slemap;
-
-Constant *getStringLiteralExpression(Module &m, const std::string &str) {
-  if (slemap.count(str))
-    return slemap[str];
-
-  LLVMContext &Context = m.getContext();
-
-  Constant *array = ConstantDataArray::getString(Context, str);
-
-  GlobalVariable *strConstant =
-      new GlobalVariable(m, array->getType(), true, GlobalValue::PrivateLinkage,
-                         array, "__" + str);
-
-  Constant *zero = ConstantInt::get(Type::getInt64Ty(Context), 0);
-  Value *zeros[] = {zero, zero};
-  ArrayRef<Value *> zerosRef(zeros, zeros + 2);
-
-  // TODO: double-check passed type
-  slemap[str] = ConstantExpr::getInBoundsGetElementPtr(
-      strConstant->getType()->getPointerElementType(), strConstant, zerosRef);
-  return slemap[str];
+extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
+llvmGetPassPluginInfo() {
+  return {LLVM_PLUGIN_API_VERSION, "slamp", "v1.0", [](llvm::PassBuilder &PB) {
+            PB.registerPipelineParsingCallback(
+                [](llvm::StringRef Name, llvm::ModulePassManager &MPM,
+                   llvm::ArrayRef<llvm::PassBuilder::PipelineElement>) {
+                  if (Name == "slamp-insts") {
+                    MPM.addPass(liberty::slamp::SLAMP());
+                    return true; // Successfully handled the given pipeline name
+                  }
+                  return false; // Didn't handle the given pipeline name
+                });
+            PB.registerPipelineParsingCallback(
+                [](llvm::StringRef Name, llvm::ModulePassManager &MPM,
+                   llvm::ArrayRef<llvm::PassBuilder::PipelineElement>) {
+                  if (Name == "prompt-namer") {
+                    MPM.addPass(liberty::Namer());
+                    return true; // Successfully handled the given pipeline name
+                  }
+                  return false; // Didn't handle the given pipeline name
+                });
+          }};
 }
-
-namespace liberty::slamp {
-
-char SLAMP::ID = 0;
-static uint64_t numElidedNode = 0;
-static uint64_t numInstrumentedNode = 0;
 
 // FIXME: hack for supporting LAMP
 STATISTIC(numElidedNodeStats, "Number of instructions in the loop that are "
                               "ignored for SLAMP due to pruning");
 STATISTIC(numInstrumentedNodeStats,
           "Number of instructions in the loop that are instrumented ");
-static RegisterPass<SLAMP> RP("slamp-insts",
-                              "Insert instrumentation for SLAMP profiling",
-                              false, false);
+// static RegisterPass<SLAMP> RP("slamp-insts",
+//                               "Insert instrumentation for SLAMP profiling",
+//                               false, false);
 
 // whether to enable targeting a specific loop
 static cl::opt<bool> TargetLoopEnabled("slamp-target-loop-enabled",
@@ -128,21 +120,52 @@ static cl::opt<uint32_t> TargetInst("slamp-target-inst", cl::init(0),
                                     cl::NotHidden,
                                     cl::desc("Target Instruction"));
 
-cl::opt<std::string> outfile("slamp-outfile", cl::init("result.slamp.profile"),
-                             cl::NotHidden, cl::desc("Output file name"));
+static cl::opt<std::string> Outfile("slamp-outfile",
+                                    cl::init("result.slamp.profile"),
+                                    cl::NotHidden,
+                                    cl::desc("Output file name"));
 
-SLAMP::SLAMP() : ModulePass(ID) {}
+static std::map<std::string, Constant *> slemap;
+
+Constant *getStringLiteralExpression(Module &m, const std::string &str) {
+  if (slemap.count(str))
+    return slemap[str];
+
+  LLVMContext &Context = m.getContext();
+
+  Constant *array = ConstantDataArray::getString(Context, str);
+
+  GlobalVariable *strConstant =
+      new GlobalVariable(m, array->getType(), true, GlobalValue::PrivateLinkage,
+                         array, "__" + str);
+
+  Constant *zero = ConstantInt::get(Type::getInt64Ty(Context), 0);
+  Value *zeros[] = {zero, zero};
+  ArrayRef<Value *> zerosRef(zeros, zeros + 2);
+
+  // TODO: double-check passed type
+  slemap[str] = ConstantExpr::getInBoundsGetElementPtr(
+      strConstant->getType()->getPointerElementType(), strConstant, zerosRef);
+  return slemap[str];
+}
+
+namespace liberty::slamp {
+
+static uint64_t numElidedNode = 0;
+static uint64_t numInstrumentedNode = 0;
+
+SLAMP::SLAMP() = default;
 
 SLAMP::~SLAMP() = default;
 
-void SLAMP::getAnalysisUsage(AnalysisUsage &au) const {
-  au.addRequired<LoopInfoWrapperPass>();
-#ifdef USE_PDG
-  au.addRequired<LoopAA>();
-  au.addRequired<PDGBuilder>();
-#endif
-  au.setPreservesAll();
-}
+// void SLAMP::getAnalysisUsage(AnalysisUsage &au) const {
+//   au.addRequired<LoopInfoWrapperPass>();
+// #ifdef USE_PDG
+//   au.addRequired<LoopAA>();
+//   au.addRequired<PDGBuilder>();
+// #endif
+//   au.setPreservesAll();
+// }
 
 static std::vector<uint32_t> elidedLoopInstsId;
 // https://stackoverflow.com/questions/20511347/a-good-hash-function-for-a-vector
@@ -223,8 +246,12 @@ void generateInstOffset(Module &m) {
     }
   }
 }
+llvm::PreservedAnalyses SLAMP::run(llvm::Module &m,
+                                   llvm::ModuleAnalysisManager &MAM) {
+  llvm::PassBuilder pb;
+  llvm::FunctionAnalysisManager fam;
+  pb.registerFunctionAnalyses(fam);
 
-bool SLAMP::runOnModule(Module &m) {
   // generate instruction offset
   generateInstOffset(m);
 
@@ -236,9 +263,35 @@ bool SLAMP::runOnModule(Module &m) {
   I64 = Type::getInt64Ty(ctxt);
   I8Ptr = Type::getInt8PtrTy(ctxt);
 
+  for (auto &fi : m) {
+    Function *f = &fi;
+
+    if (f->getName().str() == TargetFcn) {
+      target_fn = f;
+      break;
+    }
+  }
+
+  LoopInfo &loopinfo = fam.getResult<LoopAnalysis>(*target_fn);
+
+  if (target_fn) {
+    for (auto &bi : *target_fn) {
+      if (bi.getName().str() == TargetLoop) {
+        auto header = &bi;
+        this->target_loop = loopinfo.getLoopFor(header);
+        break;
+      }
+    }
+  }
+
+  // FIXME: dangerous, this loop pointer may not persist
+  // LoopInfo &loopinfo =
+  // getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
+
   // find target function/loop
-  if (TargetLoopEnabled && !findTarget(m))
-    return false;
+  if (TargetLoopEnabled && !target_loop)
+    // FIXME: might not be right
+    return llvm::PreservedAnalyses::all();
 
   // TODO: might want to check the whole program if no target loop is found
   // check if target may call setjmp/longjmp
@@ -480,46 +533,19 @@ bool SLAMP::runOnModule(Module &m) {
   } else {
     instrumentInstructions(m);
   }
-  instrumentLoopStartStopForAll(m);
+  instrumentLoopStartStopForAll(m, MAM);
 
   // insert implementations for runtime wrapper functions, which calls the
   // binary standard function
   addWrapperImplementations(m);
 
-  return true;
+  // FIXME: might be too strict
+  return llvm::PreservedAnalyses::none();
 }
 
 /// Find target function and loop baed on the options passed in
-bool SLAMP::findTarget(Module &m) {
+bool SLAMP::findTarget(Module &m, ModuleAnalysisManager &MAM) {
   bool found = false;
-
-  for (auto &fi : m) {
-    Function *f = &fi;
-
-    if (f->getName().str() == TargetFcn) {
-      BasicBlock *header = nullptr;
-
-      for (auto &bi : *f) {
-        if (bi.getName().str() == TargetLoop) {
-          header = &bi;
-          break;
-        }
-      }
-
-      if (header == nullptr)
-        break;
-
-      // FIXME: dangerous, this loop pointer may not persist
-      LoopInfo &loopinfo = getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
-      this->target_loop = loopinfo.getLoopFor(header);
-
-      if (!this->target_loop)
-        break;
-
-      this->target_fn = f;
-      found = true;
-    }
-  }
 
   return found;
 }
@@ -830,7 +856,7 @@ void SLAMP::instrumentDestructor(Module &m) {
   // call SLAMP_fini function
   auto *fini = cast<Function>(
       m.getOrInsertFunction("SLAMP_fini", Void, I8Ptr).getCallee());
-  Constant *filename = getStringLiteralExpression(m, outfile);
+  Constant *filename = getStringLiteralExpression(m, Outfile);
   Value *args[] = {filename};
 
   CallInst::Create(fini, args, "", entry->getTerminator());
@@ -1256,14 +1282,18 @@ void SLAMP::instrumentMainFunction(Module &m) {
 }
 
 /// Pass in the loop and instrument enter/exit hooks
-void SLAMP::instrumentLoopStartStopForAll(Module &m) {
+void SLAMP::instrumentLoopStartStopForAll(Module &m,
+                                          ModuleAnalysisManager &MAM) {
+  llvm::PassBuilder pb;
+  llvm::FunctionAnalysisManager fam;
+  pb.registerFunctionAnalyses(fam);
 
   // for all functions
   for (auto &f : m) {
     if (f.isDeclaration())
       continue;
+    LoopInfo &li = fam.getResult<LoopAnalysis>(f);
     // get all loops
-    LoopInfo &li = getAnalysis<LoopInfoWrapperPass>(f).getLoopInfo();
     for (auto &loop : li.getLoopsInPreorder()) {
 
       // TODO: check setjmp/longjmp

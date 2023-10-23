@@ -28,7 +28,7 @@ if [ -z "$SLAMP_LIB_PATH" ]; then
     fi
 fi
 
-SLAMP_LIBS="-load $SLAMP_LIB_PATH"
+SLAMP_LIBS="-load $SLAMP_LIB_PATH -load-pass-plugin=$SLAMP_LIB_PATH"
 
 function drive {
   # $1: .bc file
@@ -36,7 +36,7 @@ function drive {
   # $3: target loop
 
   local SLAMP_OUTFILE="$2-$3.result.slamp.profile"
-  local OPTS="-slamp-insts -slamp-target-fn=$2 -slamp-target-loop=$3 $EXTRA_FLAGS -slamp-outfile=$SLAMP_OUTFILE"
+  local OPTS="-passes=slamp-insts -slamp-target-fn=$2 -slamp-target-loop=$3 $EXTRA_FLAGS -slamp-outfile=$SLAMP_OUTFILE"
 
   local PRELINK_BC="`basename $1 .bc`.slamp.prelink.bc"
   local PRELINK_OBJ="`basename $1 .bc`.slamp.prelink.o"
@@ -138,8 +138,8 @@ fi
 if [[ x$2 != x && x$3 != x ]]; then
     # create a new bc name with .named.bc
     NAMED_BC="`basename $1 .bc`.named.bc"
-    echo opt $1 -o $NAMED_BC $SLAMP_LIBS -prompt-metadata-namer
-    opt $1 -o $NAMED_BC $SLAMP_LIBS -prompt-metadata-namer
+    echo opt $1 -o $NAMED_BC $SLAMP_LIBS -passes=prompt-namer
+    opt $1 -o $NAMED_BC $SLAMP_LIBS -passes=prompt-namer
     drive $NAMED_BC $2 $3
 else
     # Check if both $SCAF_LIBS_DIR and $LIBERTY_LIBS_DIR are set

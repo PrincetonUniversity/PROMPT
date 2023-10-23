@@ -5,7 +5,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/DataLayout.h"
@@ -18,7 +18,7 @@ namespace liberty::slamp {
 using namespace std;
 using namespace llvm;
 
-class SLAMP : public ModulePass {
+class SLAMP : public PassInfoMixin<SLAMP> {
   friend class MemoryMeasure;
 
 public:
@@ -26,12 +26,12 @@ public:
   SLAMP();
   ~SLAMP();
 
-  void getAnalysisUsage(AnalysisUsage &au) const;
-
   bool runOnModule(Module &m);
+  llvm::PreservedAnalyses run(llvm::Module &M,
+                              llvm::ModuleAnalysisManager &MAM);
 
 private:
-  bool findTarget(Module &m);
+  bool findTarget(Module &m, ModuleAnalysisManager &MAM);
 
   bool mayCallSetjmpLongjmp(Loop *loop);
   void getCallableFunctions(Loop *loop, set<Function *> &callables);
@@ -59,7 +59,7 @@ private:
 
   void instrumentNonStandards(Module &m, Function *ctor);
   void allocErrnoLocation(Module &m, Function *ctor);
-  void instrumentLoopStartStopForAll(Module &m);
+  void instrumentLoopStartStopForAll(Module &m, ModuleAnalysisManager &MAM);
   void instrumentFunctionStartStop(Module &m);
   void instrumentLoopStartStop(Module &m, Loop *l);
   void instrumentInstructions(Module &m, Loop *l = nullptr);
@@ -78,8 +78,8 @@ private:
 
   Type *Void, *I32, *I64, *I8Ptr;
 
-  Function *target_fn;
-  Loop *target_loop;
+  Function *target_fn = nullptr;
+  Loop *target_loop = nullptr;
   unordered_set<Instruction *> elidedLoopInsts;
 };
 

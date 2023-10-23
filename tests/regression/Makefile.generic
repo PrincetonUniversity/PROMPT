@@ -27,7 +27,8 @@ LLVM_OPT?= opt
 
 ARGS?=$(TRAINARGS)
 LLVM_CFLAGS?=-O1 -g -c -emit-llvm $(PREPROCESSOR_OPTIONS) $(PREPROCESSING_OPTIONS) $(DEBUG) -Xclang -disable-llvm-passes $(FINAL_CFLAGS) $(FINAL_CXXFLAGS) -fno-builtin ### !!! FIXME: temp change
-TRANSFORMATIONS_BEFORE_PARALLELIZATION=-mem2reg -simplifycfg -simplifycfg-sink-common=false -instcombine -tailcallelim -loop-simplify -lcssa -licm -loop-unswitch -globalopt -instcombine -ipsccp -gvn -dse -adce -loop-simplify -lcssa -indvars -loop-deletion -instcombine -indvars
+TRANSFORMATIONS_BEFORE_PARALLELIZATION=-mem2reg -simplifycfg -simplifycfg-sink-common=false -instcombine -tailcallelim -loop-simplify -lcssa -licm -globalopt -instcombine -ipsccp -gvn -dse -adce -loop-simplify -lcssa -indvars -loop-deletion -instcombine -indvars
+# -loop-unswitch
 OPT_LEVEL=-O3
 
 
