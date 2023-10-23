@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: llvm/llvm-project
-          ref: refs/branches/releases/14.x  
+          ref: releases/14.x  
           submodules: false
           fetch-depth: 1 # shallow
           path: llvm-project
