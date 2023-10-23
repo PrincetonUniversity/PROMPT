@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-llvm-9:
+  build-llvm-14:
     runs-on: ubuntu-20.04
     outputs:
-      cache-key: llvm-9.0.1-${{ runner.os }}
+      cache-key: llvm-14-${{ runner.os }}
 
     steps:
       - name: Cache dependencies
@@ -18,14 +18,14 @@ jobs:
         with:
           path: |
             llvm-install
-          key: llvm-9.0.1-${{ runner.os }}
+          key: llvm-14-${{ runner.os }}
 
       - name: Checkout LLVM
         if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/checkout@v3
         with:
           repository: llvm/llvm-project
-          ref: refs/tags/llvmorg-9.0.1
+          ref: refs/branches/releases/14.x  
           submodules: false
           fetch-depth: 1 # shallow
           path: llvm-project
@@ -50,51 +50,8 @@ jobs:
           ninja
           ninja install
 
-  build-noelle:
-    needs: build-llvm-9
-    runs-on: ubuntu-20.04
-    outputs:
-      cache-key: noelle-${{ runner.os }}
-
-    steps:
-      - name: Cache dependencies
-        id: cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            noelle-install
-          key: noelle-${{ runner.os }}
-
-      - name: Restore cache from LLVM
-        if: steps.cache.outputs.cache-hit != 'true'
-        id: cache-llvm
-        uses: actions/cache@v3
-        with:
-          path: llvm-install
-          key: ${{ needs.build-llvm-9.outputs.cache-key }}
-          restore-keys: |
-            ${{ needs.build-llvm-9.outputs.cache-key }}
-
-      - name: Checkout Noelle
-        if: steps.cache.outputs.cache-hit != 'true'
-        uses: actions/checkout@v3
-        with:
-          repository: arcana-lab/noelle
-          path: noelle
-
-      - name: Build Noelle
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: |
-          LLVM_INSTALL=$(realpath llvm-install)
-          mkdir -p noelle-install
-          NOELLE_INSTALL=$(realpath noelle-install)
-          PATH=${LLVM_INSTALL}/bin/:${PATH} \
-          LLVM_CMAKE_DIR=${LLVM_INSTALL}/lib/cmake/llvm \
-          PDG_INSTALL_DIR=${NOELLE_INSTALL} \
-          make -C noelle all
-
   build-prompt:
-    needs: [build-llvm-9]
+    needs: [build-llvm-14]
     runs-on: ubuntu-20.04
 
     steps:
@@ -107,9 +64,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: llvm-install
-          key: ${{ needs.build-llvm-9.outputs.cache-key }}
+          key: ${{ needs.build-llvm-14.outputs.cache-key }}
           restore-keys: |
-            ${{ needs.build-llvm-9.outputs.cache-key }}
+            ${{ needs.build-llvm-14.outputs.cache-key }}
 
       - name: Install system dependences
         run: |
