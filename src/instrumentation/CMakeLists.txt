@@ -1,14 +1,10 @@
 # Link with LLVM
 include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Prepare the pass to be included in the source tree
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(AddLLVM)
-
-# Programming languages to use
-enable_language(C CXX)
 
 file(GLOB SRCS "*.cpp" "utils/*.cpp")
 

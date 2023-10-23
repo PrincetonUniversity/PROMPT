@@ -1,9 +1,5 @@
 cmake_minimum_required(VERSION 3.6.2 FATAL_ERROR)
 
-set(CMAKE_C_COMPILER "clang")
-set(CMAKE_CXX_COMPILER "clang++")
-set(CMAKE_LINKER "ld.gold")
-
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 

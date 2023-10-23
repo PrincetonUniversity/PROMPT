@@ -3,6 +3,7 @@
 // Single Loop Aware Memory Profiler.
 //
 
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instructions.h"
 #include <cstdint>
 #define DEBUG_TYPE "SLAMP"
@@ -587,7 +588,7 @@ void SLAMP::getCallableFunctions(Function *f, set<Function *> &callables) {
 
 void SLAMP::getFunctionsWithSign(CallInst *ci, set<Function *> matched) {
   Module *m = ci->getParent()->getParent()->getParent();
-  CallSite cs(ci);
+  CallBase &cs = cast<CallBase>(*ci);
 
   for (auto &fi : *m) {
     Function *func = &fi;
@@ -604,7 +605,7 @@ void SLAMP::getFunctionsWithSign(CallInst *ci, set<Function *> matched) {
 
     if (found) {
       Function::arg_iterator fai;
-      CallSite::arg_iterator cai;
+      User::op_iterator cai;
       for (fai = func->arg_begin(), cai = cs.arg_begin();
            fai != func->arg_end(); fai++, cai++) {
         Value *af = &*fai;
@@ -677,7 +678,7 @@ void SLAMP::replaceExternalFunctionCalls(Module &m) {
       continue;
 
     // filter functions to ignore
-    if (ignores.find(func->getName()) != ignores.end())
+    if (ignores.find(func->getName().str()) != ignores.end())
       continue;
 
     // FIXME: malloc can be an intrinsic function, not all intrinsics can be
@@ -695,7 +696,7 @@ void SLAMP::replaceExternalFunctionCalls(Module &m) {
 
   bool hasUnrecognizedFunction = false;
   for (auto func : funcs) {
-    string name = func->getName();
+    string name = func->getName().str();
 
     // start with SLAMP_, ignore it
     if (name.find("SLAMP_") == 0) {
@@ -1286,15 +1287,15 @@ void SLAMP::instrumentLoopStartStopForAll(Module &m) {
       // add instrumentation on loop header:
       // if new invocation, call SLAMP_loop_invocation, else, call
       // SLAMP_loop_iteration
+      FunctionType *fty = FunctionType::get(Void, I32, false);
       auto *f_loop_invoke = cast<Function>(
-          m.getOrInsertFunction("SLAMP_enter_loop", Void, I32).getCallee());
+          m.getOrInsertFunction("SLAMP_enter_loop", fty).getCallee());
       auto *f_loop_iter = cast<Function>(
-          m.getOrInsertFunction("SLAMP_loop_iter_ctx", Void, I32).getCallee());
+          m.getOrInsertFunction("SLAMP_loop_iter_ctx", fty).getCallee());
       auto *f_loop_exit = cast<Function>(
-          m.getOrInsertFunction("SLAMP_exit_loop", Void, I32).getCallee());
+          m.getOrInsertFunction("SLAMP_exit_loop", fty).getCallee());
 
-      PHINode *funcphi =
-          PHINode::Create(f_loop_invoke->getType(), 2, "funcphi_loop_context");
+      PHINode *funcphi = PHINode::Create(fty, 2, "funcphi_loop_context");
       InstInsertPt pt;
 
       if (isa<LandingPadInst>(header->getFirstNonPHI()))
@@ -1313,7 +1314,7 @@ void SLAMP::instrumentLoopStartStopForAll(Module &m) {
       }
 
       updateDebugInfo(
-          CallInst::Create(funcphi, args, "", header->getFirstNonPHI()),
+          CallInst::Create(fty, funcphi, args, "", header->getFirstNonPHI()),
           header->getFirstNonPHI(), m);
 
       // Add `SLAMP_loop_exit` to all loop exits
@@ -1421,14 +1422,15 @@ void SLAMP::instrumentLoopStartStop(Module &m, Loop *loop) {
   // add instrumentation on loop header:
   // if new invocation, call SLAMP_loop_invocation, else, call
   // SLAMP_loop_iteration
+  FunctionType *fty = FunctionType::get(Void, false);
   auto *f_loop_invoke = cast<Function>(
-      m.getOrInsertFunction("SLAMP_loop_invocation", Void).getCallee());
+      m.getOrInsertFunction("SLAMP_loop_invocation", fty).getCallee());
   auto *f_loop_iter = cast<Function>(
-      m.getOrInsertFunction("SLAMP_loop_iteration", Void).getCallee());
-  auto *f_loop_exit = cast<Function>(
-      m.getOrInsertFunction("SLAMP_loop_exit", Void).getCallee());
+      m.getOrInsertFunction("SLAMP_loop_iteration", fty).getCallee());
+  auto *f_loop_exit =
+      cast<Function>(m.getOrInsertFunction("SLAMP_loop_exit", fty).getCallee());
 
-  PHINode *funcphi = PHINode::Create(f_loop_invoke->getType(), 2, "funcphi");
+  PHINode *funcphi = PHINode::Create(fty, 2, "funcphi");
   InstInsertPt pt;
 
   if (isa<LandingPadInst>(header->getFirstNonPHI()))
@@ -1446,7 +1448,7 @@ void SLAMP::instrumentLoopStartStop(Module &m, Loop *loop) {
       funcphi->addIncoming(f_loop_invoke, pred);
   }
 
-  updateDebugInfo(CallInst::Create(funcphi, "", header->getFirstNonPHI()),
+  updateDebugInfo(CallInst::Create(fty, funcphi, "", header->getFirstNonPHI()),
                   header->getFirstNonPHI(), m);
 
   // Add `SLAMP_loop_exit` to all loop exits
@@ -1553,10 +1555,10 @@ int SLAMP::getIndex(PointerType *ty, size_t &size, const DataLayout &DL) {
 /// This does not replace the function, just add an additional call
 // FIXME: is this a complete list?
 void SLAMP::instrumentMemIntrinsics(Module &m, MemIntrinsic *mi) {
-  CallSite cs(mi);
-  const Function *callee = cs.getCalledFunction();
+  CallBase &cb = cast<CallBase>(*mi);
+  const Function *callee = cb.getCalledFunction();
   assert(callee);
-  string callee_name = callee->getName();
+  string callee_name = callee->getName().str();
 
   // add intrinsic handlers
 
@@ -1607,13 +1609,13 @@ void SLAMP::instrumentMemIntrinsics(Module &m, MemIntrinsic *mi) {
 
   if (callee_name.find("memset") != string::npos) {
     // memset
-    args.push_back(cs.getArgument(0));
-    args.push_back(cs.getArgument(2));
+    args.push_back(cb.getArgOperand(0));
+    args.push_back(cb.getArgOperand(2));
   } else {
     // memcpy and memmove
-    args.push_back(cs.getArgument(0));
-    args.push_back(cs.getArgument(1));
-    args.push_back(cs.getArgument(2));
+    args.push_back(cb.getArgOperand(0));
+    args.push_back(cb.getArgOperand(1));
+    args.push_back(cb.getArgOperand(2));
   }
 
   updateDebugInfo(CallInst::Create(fcn, args, "", mi), mi, m);
@@ -1621,10 +1623,10 @@ void SLAMP::instrumentMemIntrinsics(Module &m, MemIntrinsic *mi) {
 
 /// handle `llvm.lifetime.start/end.p0i8`
 void SLAMP::instrumentLifetimeIntrinsics(Module &m, Instruction *inst) {
-  CallSite cs(inst);
-  const Function *callee = cs.getCalledFunction();
+  CallBase &cb = cast<CallBase>(*inst);
+  const Function *callee = cb.getCalledFunction();
   assert(callee);
-  string callee_name = callee->getName();
+  string callee_name = callee->getName().str();
 
   // add intrinsic handlers
   Type *mi_param_types_a[] = {I64, I8Ptr};
@@ -1655,8 +1657,8 @@ void SLAMP::instrumentLifetimeIntrinsics(Module &m, Instruction *inst) {
 
   // set parameters
   vector<Value *> args;
-  args.push_back(cs.getArgument(0));
-  args.push_back(cs.getArgument(1));
+  args.push_back(cb.getArgOperand(0));
+  args.push_back(cb.getArgOperand(1));
 
   CallInst::Create(fcn, args, "", inst);
 }
