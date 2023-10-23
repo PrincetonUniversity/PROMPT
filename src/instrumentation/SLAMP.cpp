@@ -1295,7 +1295,8 @@ void SLAMP::instrumentLoopStartStopForAll(Module &m) {
       auto *f_loop_exit = cast<Function>(
           m.getOrInsertFunction("SLAMP_exit_loop", fty).getCallee());
 
-      PHINode *funcphi = PHINode::Create(fty, 2, "funcphi_loop_context");
+      PHINode *funcphi =
+          PHINode::Create(f_loop_invoke->getType(), 2, "funcphi_loop_context");
       InstInsertPt pt;
 
       if (isa<LandingPadInst>(header->getFirstNonPHI()))
@@ -1430,7 +1431,7 @@ void SLAMP::instrumentLoopStartStop(Module &m, Loop *loop) {
   auto *f_loop_exit =
       cast<Function>(m.getOrInsertFunction("SLAMP_loop_exit", fty).getCallee());
 
-  PHINode *funcphi = PHINode::Create(fty, 2, "funcphi");
+  PHINode *funcphi = PHINode::Create(f_loop_invoke->getType(), 2, "funcphi");
   InstInsertPt pt;
 
   if (isa<LandingPadInst>(header->getFirstNonPHI()))
