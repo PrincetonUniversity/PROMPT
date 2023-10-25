@@ -219,11 +219,11 @@ void SLAMP_report_base_pointer_inst(uint32_t instId, void *ptr) {
 }
 
 // TODO: this should be optional
-void SLAMP_ext_push(const uint32_t instr) ATTRIBUTE(always_inline) {
+void SLAMP_ext_push(const uint32_t instr) ATTRIBUTE(optnone) {
   ext_fn_inst_id = instr;
 }
 
-void SLAMP_ext_pop() ATTRIBUTE(always_inline) { ext_fn_inst_id = 0; }
+void SLAMP_ext_pop() ATTRIBUTE(optnone) { ext_fn_inst_id = 0; }
 
 void SLAMP_load(const uint32_t instr, const uint64_t addr,
                 const uint32_t bare_instr, uint64_t value, const uint32_t size)
