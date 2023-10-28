@@ -16,7 +16,7 @@ KNOB< string > KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool", "o", "memcount.out
 
 std::set<std::string> all_external_fcns;
 
-static bool PIN_ENABLED = false;
+static volatile bool PIN_ENABLED = false;
 
 // Global variable to count memory related instructions
 static UINT64 memInstReadCount = 0;
@@ -25,23 +25,61 @@ static UINT64 memInstWriteCount = 0;
 static ADDRINT external_start_addr = 0;
 static ADDRINT external_stop_addr = 0;
 
+static VOID *ext_load_fcn_ptr; // void (*ext_load_fcn_ptr)(uint64_t);
+static VOID *ext_store_fcn_ptr; //void (*ext_store_fcn_ptr)(uint64_t);
+
 // This function is called before every instruction is executed
-VOID MemReportRead(ADDRINT memAddr) {
+VOID MemReportRead(THREADID tid, const CONTEXT* context, ADDRINT memAddr) {
+  if (!PIN_ENABLED) {
+    return;
+  }
   memInstReadCount++;
+  // std::cerr << "MemReportRead "  << memAddr << std::endl;
+  // call application function (SLAMP_ext_load_1(memAddr))
+
+  CONTEXT writableContext, *ctxt;
+  PIN_SaveContext(context, &writableContext);
+  ctxt = &writableContext;
+  ADDRINT curSp          = PIN_GetContextReg(ctxt, REG_RSP);
+  // move curSp to 100 bytes below and make it 16-byte aligned
+  curSp = (curSp - 100) & ~0xF;
+  PIN_SetContextReg(ctxt, REG_RSP, curSp);
+
+  PIN_ENABLED = 0;
+  PIN_CallApplicationFunction(ctxt, tid, CALLINGSTD_DEFAULT, AFUNPTR(ext_load_fcn_ptr), NULL, PIN_PARG(void), PIN_PARG(uint64_t), memAddr, PIN_PARG_END());
+  PIN_ENABLED = 1;
 }
 
-VOID MemReportWrite(ADDRINT memAddr) {
+VOID MemReportWrite(THREADID tid, const CONTEXT* context, ADDRINT memAddr) {
+  if (!PIN_ENABLED) {
+    return;
+  }
   memInstWriteCount++;
+  // std::cerr << "MemReportWrite " << memAddr << std::endl;
+  CONTEXT writableContext, *ctxt;
+  PIN_SaveContext(context, &writableContext);
+  ctxt = &writableContext;
+  ADDRINT curSp          = PIN_GetContextReg(ctxt, REG_RSP);
+  // move curSp to 100 bytes below and make it 16-byte aligned
+  curSp = (curSp - 100) & ~0xF;
+  PIN_SetContextReg(ctxt, REG_RSP, curSp);
+
+  // call application function (SLAMP_ext_store_1(memAddr))
+  PIN_ENABLED = 0;
+  PIN_CallApplicationFunction(ctxt, tid, CALLINGSTD_DEFAULT, AFUNPTR(ext_store_fcn_ptr), NULL, PIN_PARG(void), PIN_PARG(uint64_t), memAddr, PIN_PARG_END());
+  PIN_ENABLED = 1;
 }
 
 VOID ExternalStart()
 {
+  // std::cerr << "ExternalStart" << std::endl;
   // std::cerr << "ExternalStart" << std::endl;
   PIN_ENABLED = true;
 }
 
 VOID ExternalStop()
 {
+  // std::cerr << "ExternalStop" << std::endl;
   // std::cerr << "ExternalStop" << std::endl;
   PIN_ENABLED = false;
 }
@@ -72,6 +110,21 @@ VOID Image(IMG img, VOID* v)
     {
       std::cerr << "Found the ExternalStop function at " << RTN_Address(external_stop_Rtn) << std::endl;
       external_stop_addr = RTN_Address(external_stop_Rtn);
+    }
+
+    RTN ext_load_Rtn = RTN_FindByName(img, "SLAMP_ext_load_1");
+    if (RTN_Valid(ext_load_Rtn))
+    {
+      ext_load_fcn_ptr = reinterpret_cast< VOID* >(RTN_Address(ext_load_Rtn));
+      std::cerr << "Found the ext_load function at " << ext_load_fcn_ptr << std::endl;
+    }
+
+    RTN ext_store_Rtn = RTN_FindByName(img, "SLAMP_ext_store_1");
+    if (RTN_Valid(ext_store_Rtn))
+    {
+      ext_store_fcn_ptr = reinterpret_cast< VOID* >(RTN_Address(ext_store_Rtn));
+
+      std::cerr << "Found the ext_store function at " << ext_store_fcn_ptr << std::endl;
     }
 }
 
@@ -140,6 +193,8 @@ VOID Instruction(INS ins, VOID *v)
       // std::cerr << "Instrumenting read: " << INS_Disassemble(ins) << std::endl;
       INS_InsertCall(
           ins, IPOINT_BEFORE, (AFUNPTR)MemReportRead,
+          IARG_THREAD_ID,
+          IARG_CONTEXT,
           IARG_MEMORYREAD_EA,
           IARG_END);
     }
@@ -147,6 +202,8 @@ VOID Instruction(INS ins, VOID *v)
       // std::cerr << "Instrumenting write: " << INS_Disassemble(ins) << std::endl;
       INS_InsertCall(
           ins, IPOINT_BEFORE, (AFUNPTR)MemReportWrite,
+          IARG_THREAD_ID,
+          IARG_CONTEXT,
           IARG_MEMORYWRITE_EA,
           IARG_END);
     }

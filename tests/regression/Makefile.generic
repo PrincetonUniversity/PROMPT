@@ -2,7 +2,6 @@ BINARY=benchmark
 PLAIN=$(BINARY).plain
 CANON=$(BINARY)
 
-LIBS?=
 
 ifdef SPEC_DEFAULTS
 OBJFILES_BC = $(OBJS)
@@ -26,6 +25,7 @@ LLVM_LINK?= llvm-link
 LLVM_OPT?= opt
 
 ARGS?=$(TRAINARGS)
+LIBS?=$(LINKING_POSTOPTIONS)
 LLVM_CFLAGS?=-O1 -g -c -emit-llvm $(PREPROCESSOR_OPTIONS) $(PREPROCESSING_OPTIONS) $(DEBUG) -Xclang -disable-llvm-passes $(FINAL_CFLAGS) $(FINAL_CXXFLAGS) -fno-builtin ### !!! FIXME: temp change
 TRANSFORMATIONS_BEFORE_PARALLELIZATION=-mem2reg -simplifycfg -simplifycfg-sink-common=false -instcombine -tailcallelim -loop-simplify -lcssa -licm -loop-unswitch -globalopt -instcombine -ipsccp -gvn -dse -adce -loop-simplify -lcssa -indvars -loop-deletion -instcombine -indvars
 OPT_LEVEL=-O3
@@ -117,7 +117,7 @@ $(CANON).bc : $(PLAIN).opt.bc
 	$(LLVM_OPT) $(TRANSFORMATIONS_BEFORE_PARALLELIZATION) $@ -o $@
 
 %.exe : %.bc
-	$(LLVM_CXX) -O3 $< -lm -lstdc++ $(LDFLAGS) $(QUEUES) $(LAMP) $(EDGEPROF) $(SPPROF) $(SPEX) -lrt -o $@
+	$(LLVM_CXX) -O3 $< -lm -lstdc++ $(LDFLAGS) $(QUEUES) $(LAMP) $(EDGEPROF) $(SPPROF) $(SPEX) -lrt -o $(LIBS) $@
 
 clean :
 	- $(CLEANUP)

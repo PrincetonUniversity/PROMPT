@@ -1,0 +1,9 @@
+# PROFILESETUP=
+# PROFILEARGS=10000 100 20
+
+LINKING_POSTOPTIONS=-L. -lmy_memcpy
+
+TARGET_FCN=main
+TARGET_LOOP=for.cond3
+NOINLINE=1
+include ../../Makefile.generic

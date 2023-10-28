@@ -225,6 +225,14 @@ void SLAMP_ext_push(const uint32_t instr) ATTRIBUTE(optnone) {
 
 void SLAMP_ext_pop() ATTRIBUTE(optnone) { ext_fn_inst_id = 0; }
 
+void SLAMP_ext_load_1(const uint64_t addr) ATTRIBUTE(optnone) ATTRIBUTE(used) {
+  SLAMP_load1(ext_fn_inst_id, addr, ext_fn_inst_id, 0);
+}
+
+void SLAMP_ext_store_1(const uint64_t addr) ATTRIBUTE(optnone) ATTRIBUTE(used) {
+  SLAMP_store1(ext_fn_inst_id, addr);
+}
+
 void SLAMP_load(const uint32_t instr, const uint64_t addr,
                 const uint32_t bare_instr, uint64_t value, const uint32_t size)
     ATTRIBUTE(always_inline) {

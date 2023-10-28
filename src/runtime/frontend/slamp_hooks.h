@@ -69,6 +69,8 @@ void SLAMP_callback_stack_free(uint32_t instr, void *ptr);
 
 void SLAMP_ext_push(const uint32_t instr);
 void SLAMP_ext_pop();
+void SLAMP_ext_load_1(const uint64_t addr);
+void SLAMP_ext_store_1(const uint64_t addr);
 
 void SLAMP_push(const uint32_t instr);
 void SLAMP_pop();
