@@ -32,6 +32,19 @@
 
 #ifdef __cplusplus
 extern "C" {
+
+struct MEMREF {
+  // ADDRINT pc;
+  uint64_t ea;
+  uint32_t size;
+  bool read;
+};
+
+struct CUSTOM_BUFFER {
+  MEMREF *buf;
+  uint32_t num_elements;
+  uint32_t capacity;
+};
 #endif
 
 void SLAMP_dbggv(int id);
@@ -71,6 +84,7 @@ void SLAMP_ext_push(const uint32_t instr);
 void SLAMP_ext_pop();
 void SLAMP_ext_load_1(const uint64_t addr);
 void SLAMP_ext_store_1(const uint64_t addr);
+void SLAMP_PIN_event_conversion(CUSTOM_BUFFER *);
 
 void SLAMP_push(const uint32_t instr);
 void SLAMP_pop();

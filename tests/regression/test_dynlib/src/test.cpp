@@ -4,7 +4,7 @@ extern "C" {
   void my_memcpy(void *dst, void *src, int size);
 }
 
-#define ITER_NUM 10
+#define ITER_NUM 100
 // #define ITER_NUM 1000000
 int main() {
   int *p = new int[10];

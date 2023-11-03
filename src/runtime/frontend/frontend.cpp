@@ -223,7 +223,57 @@ void SLAMP_ext_push(const uint32_t instr) ATTRIBUTE(optnone) {
   ext_fn_inst_id = instr;
 }
 
+// FIXME: find a better way than optnone to avoid inlining
 void SLAMP_ext_pop() ATTRIBUTE(optnone) { ext_fn_inst_id = 0; }
+
+void SLAMP_PIN_event_conversion(CUSTOM_BUFFER *buffer) ATTRIBUTE(used) {
+  if (!on_profiling) {
+    return;
+  }
+  for (int i = 0; i < buffer->num_elements; i++) {
+    MEMREF ref = buffer->buf[i];
+    if (ref.read) {
+      switch (ref.size) {
+      case 1:
+        SLAMP_load1(ext_fn_inst_id, ref.ea, ext_fn_inst_id, 0);
+        break;
+      case 2:
+        SLAMP_load2(ext_fn_inst_id, ref.ea, ext_fn_inst_id, 0);
+        break;
+      case 4:
+        SLAMP_load4(ext_fn_inst_id, ref.ea, ext_fn_inst_id, 0);
+        break;
+      case 8:
+        SLAMP_load8(ext_fn_inst_id, ref.ea, ext_fn_inst_id, 0);
+        break;
+      default:
+        SLAMP_loadn(ext_fn_inst_id, ref.ea, ext_fn_inst_id, ref.size);
+        break;
+      }
+    } else {
+      switch (ref.size) {
+      case 1:
+        SLAMP_store1(ext_fn_inst_id, ref.ea);
+        break;
+      case 2:
+        SLAMP_store2(ext_fn_inst_id, ref.ea);
+        break;
+      case 4:
+        SLAMP_store4(ext_fn_inst_id, ref.ea);
+        break;
+      case 8:
+        SLAMP_store8(ext_fn_inst_id, ref.ea);
+        break;
+      default:
+        SLAMP_storen(ext_fn_inst_id, ref.ea, ref.size);
+        break;
+      }
+    }
+  }
+
+  // reset the buffer
+  buffer->num_elements = 0;
+}
 
 void SLAMP_ext_load_1(const uint64_t addr) ATTRIBUTE(optnone) ATTRIBUTE(used) {
   SLAMP_load1(ext_fn_inst_id, addr, ext_fn_inst_id, 0);

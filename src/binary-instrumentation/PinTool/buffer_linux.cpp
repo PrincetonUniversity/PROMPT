@@ -13,6 +13,7 @@
  */
 
 #include "pin.H"
+#include "types_base.PH"
 #include "types_vmapi.PH"
 #include <cstddef>
 #include <cstdlib>
@@ -51,52 +52,24 @@ TLS_KEY mlog_key;
  * buffers for reads and writes, we just use one struct that includes a
  * flag for type.
  */
+
+extern "C" {
+
 struct MEMREF {
-  ADDRINT pc;
+  // ADDRINT pc;
   ADDRINT ea;
   UINT32 size;
   BOOL read;
 };
 
-/*
- * MLOG - thread specific data that is not handled by the buffering API.
- */
-class MLOG {
-public:
-  MLOG(THREADID tid);
-  ~MLOG();
-
-  VOID DumpBufferToFile(struct MEMREF *reference, UINT64 numElements,
-                        THREADID tid);
-
-private:
-  ofstream _ofile;
+struct CUSTOM_BUFFER {
+  MEMREF *buf;
+  uint32_t num_elements;
+  uint32_t capacity;
 };
-
-MLOG::MLOG(THREADID tid) {
-  const string filename =
-      KnobOutputFile.Value() + "." + decstr(getpid()) + "." + decstr(tid);
-
-  _ofile.open(filename.c_str());
-
-  if (!_ofile) {
-    cerr << "Error: could not open output file." << endl;
-    exit(1);
-  }
-
-  _ofile << hex;
 }
 
-MLOG::~MLOG() { _ofile.close(); }
-
-VOID MLOG::DumpBufferToFile(struct MEMREF *reference, UINT64 numElements,
-                            THREADID tid) {
-  for (UINT64 i = 0; i < numElements; i++, reference++) {
-    if (reference->ea != 0)
-      _ofile << reference->pc << "   " << reference->ea << endl;
-  }
-}
-
+CUSTOM_BUFFER buffer;
 bool PIN_ENABLED = false;
 VOID *ext_push_funptr;
 VOID *ext_pop_funptr;
@@ -106,6 +79,7 @@ VOID *event_conversion_funptr;
 //   - first call SLAMP_ext_push
 //   - Then set profiling to On
 VOID ExternalStartWrapper(CONTEXT *ctxt, const uint32_t id) {
+  std::cerr << "external start " << id << std::endl;
   PIN_CallApplicationFunction(ctxt, PIN_ThreadId(), CALLINGSTD_DEFAULT,
                               AFUNPTR(ext_push_funptr), NULL, PIN_PARG(void),
                               PIN_PARG(uint32_t), id, PIN_PARG_END());
@@ -116,14 +90,38 @@ VOID ExternalStartWrapper(CONTEXT *ctxt, const uint32_t id) {
 //   - First turn profiling to Off
 //   - Call the SLAMP function to convert events
 //   - Then call SLAMP_ext_pop
-VOID ExternalEndWrapper(CONTEXT *ctxt, const uint32_t id) {
+VOID ExternalStopWrapper(CONTEXT *ctxt, const uint32_t id) {
   PIN_ENABLED = false;
+
+  std::cerr << "external stop " << id << std::endl;
+
+  // convert the events
   PIN_CallApplicationFunction(ctxt, PIN_ThreadId(), CALLINGSTD_DEFAULT,
                               AFUNPTR(event_conversion_funptr), NULL,
-                              PIN_PARG(void), PIN_PARG_END());
+                              PIN_PARG(void), PIN_PARG(CUSTOM_BUFFER *),
+                              &buffer, PIN_PARG_END());
+
   PIN_CallApplicationFunction(ctxt, PIN_ThreadId(), CALLINGSTD_DEFAULT,
                               AFUNPTR(ext_pop_funptr), NULL, PIN_PARG(void),
                               PIN_PARG(uint32_t), id, PIN_PARG_END());
+}
+
+VOID InsertReadToBuffer(ADDRINT memAddr, uint32_t size, INS *ins) {
+  // append to the buffer, increment the buffer size
+
+  std::cerr << "read " << memAddr << " " << size << " at " << ins << std::endl;
+  MEMREF ref{memAddr, size, true};
+  buffer.buf[buffer.num_elements++] = ref;
+  // FIXME: check for capacity
+}
+
+VOID InsertWriteToBuffer(ADDRINT memaddr, uint32_t size, INS *ins) {
+
+  std::cerr << "write " << memaddr << " " << size << " at " << ins << std::endl;
+  // append to the buffer, increment the buffer size
+  MEMREF ref{memaddr, size, false};
+  buffer.buf[buffer.num_elements++] = ref;
+  // FIXME: check for capacity
 }
 
 /**************************************************************************
@@ -149,27 +147,25 @@ VOID Trace(TRACE trace, VOID *v) {
 
       UINT32 memoryOperands = INS_MemoryOperandCount(ins);
 
+      std::cerr << "Instruction " << INS_Disassemble(ins)
+                << " has memory operands " << memoryOperands << std::endl;
+
       for (UINT32 memOp = 0; memOp < memoryOperands; memOp++) {
         UINT32 refSize = INS_MemoryOperandSize(ins, memOp);
 
         // Note that if the operand is both read and written we log it once
         // for each.
         if (INS_MemoryOperandIsRead(ins, memOp)) {
-          INS_InsertFillBuffer(ins, IPOINT_BEFORE, bufId, IARG_INST_PTR,
-                               offsetof(struct MEMREF, pc), IARG_MEMORYOP_EA,
-                               memOp, offsetof(struct MEMREF, ea), IARG_UINT32,
-                               refSize, offsetof(struct MEMREF, size),
-                               IARG_BOOL, TRUE, offsetof(struct MEMREF, read),
-                               IARG_END);
+          // can't use the buffer
+          INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)InsertReadToBuffer,
+                         IARG_MEMORYOP_EA, memOp, IARG_UINT32, refSize,
+                         IARG_INST_PTR, IARG_END);
         }
 
         if (INS_MemoryOperandIsWritten(ins, memOp)) {
-          INS_InsertFillBuffer(ins, IPOINT_BEFORE, bufId, IARG_INST_PTR,
-                               offsetof(struct MEMREF, pc), IARG_MEMORYOP_EA,
-                               memOp, offsetof(struct MEMREF, ea), IARG_UINT32,
-                               refSize, offsetof(struct MEMREF, size),
-                               IARG_BOOL, FALSE, offsetof(struct MEMREF, read),
-                               IARG_END);
+          INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)InsertWriteToBuffer,
+                         IARG_MEMORYOP_EA, memOp, IARG_UINT32, refSize,
+                         IARG_INST_PTR, IARG_END);
         }
       }
     }
@@ -183,93 +179,52 @@ VOID Trace(TRACE trace, VOID *v) {
  **************************************************************************/
 
 VOID Image(IMG img, VOID *v) {
-  // Instrument the malloc() and free() functions.  Print the input argument
-  // of each malloc() or free(), and the return value of malloc().
-  //
-  //  Find the malloc() function.
+  // Replace SLAMP_ext_push with ExternalStartWrapper
   RTN external_start_Rtn = RTN_FindByName(img, "SLAMP_ext_push");
   if (RTN_Valid(external_start_Rtn)) {
     std::cerr << "Found the ExternalStart function at "
               << RTN_Address(external_start_Rtn) << std::endl;
-    if (!RTN_IsSafeForProbedReplacement(external_start_Rtn)) {
-      std::cerr << "Cannot place ExternalStart wrapper function, not safe "
-                   "according to RTN_IsSafeForProbedReplacement "
-                << std::endl;
-      ext_push_funptr = NULL;
-    } else {
-      ext_push_funptr = (VOID *)RTN_Address(external_start_Rtn);
-    }
+
+    PROTO proto =
+        PROTO_Allocate(PIN_PARG(void), CALLINGSTD_DEFAULT, "SLAMP_ext_push",
+                       PIN_PARG(uint32_t), PIN_PARG_END());
+    ext_push_funptr = (VOID *)RTN_Address(external_start_Rtn);
+
+    RTN_ReplaceSignature(external_start_Rtn, AFUNPTR(ExternalStartWrapper),
+                         IARG_PROTOTYPE, proto, IARG_CONTEXT,
+                         IARG_FUNCARG_ENTRYPOINT_VALUE, 0, IARG_END);
+
+    PROTO_Free(proto);
+  } else {
+    std::cerr << "Could not find the ExternalStart function" << std::endl;
   }
 
+  // Replace SLAMP_ext_pop with ExternalStopWrapper
   RTN external_stop_Rtn = RTN_FindByName(img, "SLAMP_ext_pop");
   if (RTN_Valid(external_stop_Rtn)) {
     std::cerr << "Found the ExternalStop function at "
               << RTN_Address(external_stop_Rtn) << std::endl;
-    if (!RTN_IsSafeForProbedReplacement(external_stop_Rtn)) {
-      std::cerr << "Cannot place ExternalStop wrapper function, not safe "
-                   "according to RTN_IsSafeForProbedReplacement "
-                << std::endl;
-    } else {
-      ext_pop_funptr = (VOID *)RTN_Address(external_stop_Rtn);
-    }
+
+    PROTO proto =
+        PROTO_Allocate(PIN_PARG(void), CALLINGSTD_DEFAULT, "SLAMP_ext_pop",
+                       PIN_PARG(uint32_t), PIN_PARG_END());
+
+    ext_pop_funptr = (VOID *)RTN_Address(external_stop_Rtn);
+
+    RTN_ReplaceSignature(external_stop_Rtn, AFUNPTR(ExternalStopWrapper),
+                         IARG_PROTOTYPE, proto, IARG_CONTEXT,
+                         IARG_FUNCARG_ENTRYPOINT_VALUE, 0, IARG_END);
   }
 
-  RTN ext_load_Rtn = RTN_FindByName(img, "SLAMP_ext_load_1");
-  if (RTN_Valid(ext_load_Rtn)) {
-    ext_load_fcn_ptr = reinterpret_cast<VOID *>(RTN_Address(ext_load_Rtn));
-    std::cerr << "Found the ext_load function at " << ext_load_fcn_ptr
-              << std::endl;
+  // Find SLAMP_PIN_event_conversion
+  RTN event_conversion_Rtn = RTN_FindByName(img, "SLAMP_PIN_event_conversion");
+
+  if (RTN_Valid(event_conversion_Rtn)) {
+    std::cerr << "Found the event conversion function at "
+              << RTN_Address(event_conversion_Rtn) << std::endl;
+
+    event_conversion_funptr = (VOID *)RTN_Address(event_conversion_Rtn);
   }
-
-  RTN ext_store_Rtn = RTN_FindByName(img, "SLAMP_ext_store_1");
-  if (RTN_Valid(ext_store_Rtn)) {
-    ext_store_fcn_ptr = reinterpret_cast<VOID *>(RTN_Address(ext_store_Rtn));
-
-    std::cerr << "Found the ext_store function at " << ext_store_fcn_ptr
-              << std::endl;
-  }
-}
-
-/*!
- * Called when a buffer fills up, or the thread exits, so we can process it or
- * pass it off as we see fit.
- * @param[in] id		buffer handle
- * @param[in] tid		id of owning thread
- * @param[in] ctxt		application context
- * @param[in] buf		actual pointer to buffer
- * @param[in] numElements	number of records
- * @param[in] v			callback value
- * @return  A pointer to the buffer to resume filling.
- */
-VOID *BufferFull(BUFFER_ID id, THREADID tid, const CONTEXT *ctxt, VOID *buf,
-                 UINT64 numElements, VOID *v) {
-  struct MEMREF *reference = (struct MEMREF *)buf;
-
-  MLOG *mlog = static_cast<MLOG *>(PIN_GetThreadData(mlog_key, tid));
-
-  mlog->DumpBufferToFile(reference, numElements, tid);
-
-  return buf;
-}
-
-/*
- * Note that opening a file in a callback is only supported on Linux systems.
- * See buffer-win.cpp for how to work around this issue on Windows.
- */
-VOID ThreadStart(THREADID tid, CONTEXT *ctxt, INT32 flags, VOID *v) {
-  // There is a new MLOG for every thread.  Opens the output file.
-  MLOG *mlog = new MLOG(tid);
-
-  // A thread will need to look up its MLOG, so save pointer in TLS
-  PIN_SetThreadData(mlog_key, mlog, tid);
-}
-
-VOID ThreadFini(THREADID tid, const CONTEXT *ctxt, INT32 code, VOID *v) {
-  MLOG *mlog = static_cast<MLOG *>(PIN_GetThreadData(mlog_key, tid));
-
-  delete mlog;
-
-  PIN_SetThreadData(mlog_key, 0, tid);
 }
 
 /* ===================================================================== */
@@ -294,6 +249,8 @@ INT32 Usage() {
  *                              including pin -t <toolname> -- ...
  */
 int main(int argc, char *argv[]) {
+
+  PIN_InitSymbols();
   // Initialize PIN library. Print help message if -h(elp) is specified
   // in the command line or the command line is invalid
   if (PIN_Init(argc, argv)) {
@@ -302,24 +259,17 @@ int main(int argc, char *argv[]) {
 
   // Initialize the memory reference buffer;
   // set up the callback to process the buffer.
-  //
-  bufId = PIN_DefineTraceBuffer(sizeof(struct MEMREF), NUM_BUF_PAGES,
-                                BufferFull, 0);
 
-  if (bufId == BUFFER_ID_INVALID) {
-    cerr << "Error: could not allocate initial buffer" << endl;
-    return 1;
-  }
+  // TODO: need to make sure this is PIN's memory allocation
 
-  // Initialize thread-specific data not handled by buffering api.
-  mlog_key = PIN_CreateThreadDataKey(0);
+  const uint32_t INITIAL_SIZE = 1024 * 1024;
+  buffer.buf = (MEMREF *)malloc(INITIAL_SIZE * sizeof(MEMREF));
+  buffer.capacity = INITIAL_SIZE;
+  buffer.num_elements = 0;
 
   // add an instrumentation function
   TRACE_AddInstrumentFunction(Trace, 0);
-
-  // add callbacks
-  PIN_AddThreadStartFunction(ThreadStart, 0);
-  PIN_AddThreadFiniFunction(ThreadFini, 0);
+  IMG_AddInstrumentFunction(Image, 0);
 
   // Start the program, never returns
   PIN_StartProgram();

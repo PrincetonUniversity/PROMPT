@@ -24,15 +24,14 @@
 #define MASK2_OL 0x0000400000000000L
 #define GET_SHADOW(addr, shift)                                                \
   (((((uint64_t)(addr)) << (shift)) & MASK1) ^ MASK2)
-#define GET_SHADOW_PT(addr, shift)                                                \
+#define GET_SHADOW_PT(addr, shift)                                             \
   (((((uint64_t)(addr)) << (shift)) & MASK1) ^ MASK2_PT)
-#define GET_SHADOW_OL(addr, shift)                                                \
+#define GET_SHADOW_OL(addr, shift)                                             \
   (((((uint64_t)(addr)) << (shift)) & MASK1) ^ MASK2_OL)
 
 namespace slamp {
 
-template <uint64_t MASK2_VAL=MASK2>
-class MemoryMap {
+template <uint64_t MASK2_VAL = MASK2> class MemoryMap {
 private:
   inline uint64_t get_shadow(uint64_t addr, uint64_t shift) {
     return (((addr << shift) & MASK1) ^ MASK2_VAL);
@@ -51,7 +50,8 @@ private:
 public:
   uint64_t heapStart = 0;
   MemoryMap(uint32_t mask, uint32_t pattern, unsigned r)
-      : LOCALWRITE_MASK(mask), LOCALWRITE_PATTERN(pattern), ratio(r), ratio_shift(0)  {
+      : LOCALWRITE_MASK(mask), LOCALWRITE_PATTERN(pattern), ratio(r),
+        ratio_shift(0) {
     // ratio expected to be a power of 2
     assert((r & (r - 1)) == 0);
 
@@ -111,17 +111,17 @@ public:
                      PROT_WRITE | PROT_READ,
                      // So do not replace the orignal program memory by accident
                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
-                     // MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+      // MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
       if (p == MAP_FAILED) {
         int err = errno;
         // if (err == EEXIST) {
-          // shadow_pages.insert(reinterpret_cast<void *>(s));
+        // shadow_pages.insert(reinterpret_cast<void *>(s));
         // } else {
-          printf("mmap failed: %lx errno: %d\n", s, err);
-          raise(SIGINT);
+        printf("mmap failed: %lx errno: %d\n", s, err);
+        raise(SIGINT);
 
-          success = false;
-          break;
+        success = false;
+        break;
         // }
       } else {
         shadow_pages.insert(p);
@@ -150,7 +150,8 @@ public:
     munmap(reinterpret_cast<void *>(get_shadow(page, ratio_shift)),
            pagesize * ratio * cnt);
 
-    // fprintf(stderr, "deallocate_pages: %lx %d\n", get_shadow(page, ratio_shift), cnt);
+    // fprintf(stderr, "deallocate_pages: %lx %d\n", get_shadow(page,
+    // ratio_shift), cnt);
 
     for (auto i = 0; i < cnt; i++, page += pagesize)
       pages.erase(page);
@@ -164,9 +165,7 @@ public:
     memcpy(shadow_dst, shadow_src, shadow_size);
   }
 
-  void init_heap(void *addr) {
-    heapStart = reinterpret_cast<uint64_t>(addr);
-  }
+  void init_heap(void *addr) { heapStart = reinterpret_cast<uint64_t>(addr); }
 
   // init stack size to be fixed 8MB
   // the stack in /proc/$pid/maps changes in runtime, use it to find the end
@@ -206,8 +205,10 @@ public:
       // FIXME: get heap start addr
       if (!strcmp(name, "[heap]")) {
         heapStart = start;
-      }
 
+        // FIXME: allocate existing heap (before main??)
+        allocate(reinterpret_cast<void *>(start), end - start);
+      }
 
       if (!strcmp(name, "[stack]")) {
         // stack grow from end (big address) backwards
@@ -222,6 +223,12 @@ public:
       if (strstr(name, ".so")) {
         allocate(reinterpret_cast<void *>(start), end - start);
         after_lib = true;
+        continue;
+      }
+
+      // FIXME: if contain .exe, then allocate
+      if (strstr(name, ".exe")) {
+        allocate(reinterpret_cast<void *>(start), end - start);
         continue;
       }
 
