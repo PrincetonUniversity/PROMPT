@@ -57,6 +57,7 @@ void SLAMP_measure_load(uint32_t id, uint64_t size);
 void SLAMP_measure_store(uint32_t id, uint64_t size);
 static void *SLAMP_measure_malloc_hook(size_t size, const void *caller);
 static void SLAMP_measure_free_hook(void *ptr, const void *caller);
+void SLAMP_report_control_block(void *cb); // control block
 
 void SLAMP_init(uint32_t max_insts, uint32_t fn_id, uint32_t loop_id);
 void SLAMP_fini(const char *filename);

@@ -435,47 +435,56 @@ struct DoubleQueue_Producer {
   }
 };
 
-Queue_p qA, qB, qNow, qOther;
-uint64_t dq_index = 0;
-uint32_t *dq_data;
+struct ControlBlock {
+  uint64_t dq_index;
+  uint32_t *dq_data;
+  Queue_p qA, qB, qNow, qOther;
+};
+
+volatile ControlBlock *cb; // we need to go between two instrumentations
 
 void init(Queue_p dqA, Queue_p dqB) {
-  qA = dqA;
-  qB = dqB;
+  cb = new ControlBlock();
+  cb->qA = dqA;
+  cb->qB = dqB;
 
   // Producer
-  qNow = dqA;
-  qOther = dqB;
+  cb->qNow = dqA;
+  cb->qOther = dqB;
 
-  dq_data = qNow->data;
+  cb->dq_index = 0;
+  cb->dq_data = cb->qNow->data;
+  printf("Init Control Block %p\n", cb);
+  printf("dq_index %lu\n", cb->dq_index);
+  printf("dq_data %p\n", cb->dq_data);
 }
 
 void swap() {
-  if (qNow == qA) {
-    qNow = qB;
-    qOther = qA;
+  if (cb->qNow == cb->qA) {
+    cb->qNow = cb->qB;
+    cb->qOther = cb->qA;
   } else {
-    qNow = qA;
-    qOther = qB;
+    cb->qNow = cb->qA;
+    cb->qOther = cb->qB;
   }
-  dq_data = qNow->data;
+  cb->dq_data = cb->qNow->data;
 }
 
 void flush() {
-  qNow->size = dq_index;
-  qNow->ready_to_read = true;
-  qNow->ready_to_write = false;
+  cb->qNow->size = cb->dq_index;
+  cb->qNow->ready_to_read = true;
+  cb->qNow->ready_to_write = false;
 }
 
 void produce_wait() ATTRIBUTE(noinline) {
   flush();
-  while (!qOther->ready_to_write) {
+  while (!cb->qOther->ready_to_write) {
     // spin
     usleep(10);
   }
   swap();
-  qNow->ready_to_read = false;
-  dq_index = 0;
+  cb->qNow->ready_to_read = false;
+  cb->dq_index = 0;
   // total_swapped++;
 }
 
@@ -487,16 +496,16 @@ void produce_32(uint32_t x) ATTRIBUTE(noinline) {
 #ifdef MM_STREAM
   // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(0, 0, 0,
   // x));
-  _mm_stream_si32((int *)&dq_data[dq_index], x);
+  _mm_stream_si32((int *)&cb->dq_data[cb->dq_index], x);
 #else
   data[index] = x;
   // dq_data[dq_index + 1] = 0;
   // dq_data[dq_index + 2] = 0;
   // dq_data[dq_index + 3] = 0;
 #endif
-  dq_index += 4;
+  cb->dq_index += 4;
 
-  if (dq_index >= QSIZE_GUARD) [[unlikely]] {
+  if (cb->dq_index >= QSIZE_GUARD) [[unlikely]] {
     produce_wait();
   }
 }
@@ -515,17 +524,17 @@ void produce_8_24_32_64(uint8_t x, uint32_t y, uint32_t z, uint64_t w)
 #ifdef MM_STREAM
   // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(z, w, y,
   // x));
-  _mm_stream_si32((int *)&dq_data[dq_index], xy);
-  _mm_stream_si32((int *)&dq_data[dq_index + 1], z);
-  _mm_stream_si64((long long *)&dq_data[dq_index + 2], w);
+  _mm_stream_si32((int *)&cb->dq_data[cb->dq_index], xy);
+  _mm_stream_si32((int *)&cb->dq_data[cb->dq_index + 1], z);
+  _mm_stream_si64((long long *)&cb->dq_data[cb->dq_index + 2], w);
 #else
   data[index] = xy;
   data[index + 1] = z;
   *((uint64_t *)&data[index + 2]) = w;
 #endif
-  dq_index += 4;
+  cb->dq_index += 4;
 
-  if (dq_index >= QSIZE_GUARD) [[unlikely]] {
+  if (cb->dq_index >= QSIZE_GUARD) [[unlikely]] {
     produce_wait();
   }
 }
@@ -534,20 +543,20 @@ void produce_8_24_32_64_64(uint8_t x, uint32_t y, uint32_t z, uint64_t w,
                            uint64_t v) ATTRIBUTE(noinline) {
   uint32_t xy = (y << 8) | x;
 #ifdef MM_STREAM
-  // _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(z, w, y,
-  // x));
-  _mm_stream_si32((int *)&dq_data[dq_index], xy);
-  _mm_stream_si32((int *)&dq_data[dq_index + 1], z);
-  _mm_stream_si64((long long *)&dq_data[dq_index + 2], w);
-  _mm_stream_si64((long long *)&dq_data[dq_index + 4], v);
+  // _mm_stream_si128((__m128i *)(dq_data + cb->dq_index), _mm_set_epi32(z, w,
+  // y, x));
+  _mm_stream_si32((int *)&cb->dq_data[cb->dq_index], xy);
+  _mm_stream_si32((int *)&cb->dq_data[cb->dq_index + 1], z);
+  _mm_stream_si64((long long *)&cb->dq_data[cb->dq_index + 2], w);
+  _mm_stream_si64((long long *)&cb->dq_data[cb->dq_index + 4], v);
 #else
-  dq_data[dq_index] = xy;
-  dq_data[dq_index + 1] = z;
-  *((uint64_t *)&dq_data[dq_index + 2]) = w;
+  cb->dq_data[cb->dq_index] = xy;
+  cb->dq_data[cb->dq_index + 1] = z;
+  *((uint64_t *)&cb->dq_data[cb->dq_index + 2]) = w;
 #endif
-  dq_index += 8;
+  cb->dq_index += 8;
 
-  if (dq_index >= QSIZE_GUARD) [[unlikely]] {
+  if (cb->dq_index >= QSIZE_GUARD) [[unlikely]] {
     produce_wait();
   }
 }
@@ -558,17 +567,17 @@ void produce_32_32(uint32_t x, uint32_t y) ATTRIBUTE(noinline) {
 #endif
 #ifdef MM_STREAM
   // _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32(0, 0, y, x));
-  _mm_stream_si32((int *)&dq_data[dq_index], x);
-  _mm_stream_si32((int *)&dq_data[dq_index + 1], y);
+  _mm_stream_si32((int *)&cb->dq_data[cb->dq_index], x);
+  _mm_stream_si32((int *)&cb->dq_data[cb->dq_index + 1], y);
 #else
   data[index] = x;
   data[index + 1] = y;
   // data[index + 2] = 0;
   // data[index + 3] = 0;
 #endif
-  dq_index += 4;
+  cb->dq_index += 4;
 
-  if (dq_index >= QSIZE_GUARD) [[unlikely]] {
+  if (cb->dq_index >= QSIZE_GUARD) [[unlikely]] {
     produce_wait();
   }
 }
@@ -578,16 +587,17 @@ void produce_64_64(const uint64_t x, const uint64_t y) ATTRIBUTE(noinline) {
   printf("produce_64_64: %lu %lu\n", x, y);
 #endif
 #ifdef MM_STREAM
-  _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi64x(y, x));
+  _mm_stream_si128((__m128i *)(cb->dq_data + cb->dq_index),
+                   _mm_set_epi64x(y, x));
   // _mm_stream_si64((long long *) &data[index], x);
   // _mm_stream_si64((long long *) &data[index + 2], y);
 #else
   *((uint64_t *)&data[index]) = x;
   *((uint64_t *)&data[index + 2]) = y;
 #endif
-  dq_index += 4;
+  cb->dq_index += 4;
 
-  if (dq_index >= QSIZE_GUARD) [[unlikely]] {
+  if (cb->dq_index >= QSIZE_GUARD) [[unlikely]] {
     produce_wait();
   }
 }
@@ -609,9 +619,9 @@ void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) ATTRIBUTE(noinline) {
 #endif
 #ifdef MM_STREAM
   // FIXME: set 32bit x, 32bit y, 64bit z, small endian
-  _mm_stream_si32((int *)&dq_data[dq_index], x);
-  _mm_stream_si32((int *)&dq_data[dq_index + 1], y);
-  _mm_stream_si64((long long *)&dq_data[dq_index + 2], z);
+  _mm_stream_si32((int *)&cb->dq_data[cb->dq_index], x);
+  _mm_stream_si32((int *)&cb->dq_data[cb->dq_index + 1], y);
+  _mm_stream_si64((long long *)&cb->dq_data[cb->dq_index + 2], z);
   // _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32( z >> 32, z &
   // 0xFFFFFFFF, y, x));
 #else
@@ -619,8 +629,8 @@ void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) ATTRIBUTE(noinline) {
   data[index + 1] = y;
   *(uint64_t *)&data[index + 2] = z;
 #endif
-  dq_index += 4;
-  if (dq_index >= QSIZE_GUARD) [[unlikely]] {
+  cb->dq_index += 4;
+  if (cb->dq_index >= QSIZE_GUARD) [[unlikely]] {
     produce_wait();
   }
 }
@@ -630,7 +640,8 @@ void produce_32_32_32(uint32_t x, uint32_t y, uint32_t z) ATTRIBUTE(noinline) {
   printf("produce_32_32_32 %d %d %d\n", x, y, z);
 #endif
 #ifdef MM_STREAM
-  _mm_stream_si128((__m128i *)(dq_data + dq_index), _mm_set_epi32(0, z, y, x));
+  _mm_stream_si128((__m128i *)(cb->dq_data + cb->dq_index),
+                   _mm_set_epi32(0, z, y, x));
 
   // _mm_stream_si32((int *) &data[index], x);
   // _mm_stream_si32((int *) &data[index+1], y);
@@ -641,8 +652,8 @@ void produce_32_32_32(uint32_t x, uint32_t y, uint32_t z) ATTRIBUTE(noinline) {
   data[index + 2] = z;
   data[index + 3] = 0;
 #endif
-  dq_index += 4;
-  if (dq_index >= QSIZE_GUARD) [[unlikely]] {
+  cb->dq_index += 4;
+  if (cb->dq_index >= QSIZE_GUARD) [[unlikely]] {
     produce_wait();
   }
 }

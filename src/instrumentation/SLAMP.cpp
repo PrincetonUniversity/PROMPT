@@ -444,7 +444,6 @@ bool SLAMP::runOnModule(Module &m) {
       }
     }
   }
-#endif
 
   numInstrumentedNodeStats = numInstrumentedNode;
   numElidedNodeStats = numElidedNode;
@@ -453,6 +452,7 @@ bool SLAMP::runOnModule(Module &m) {
   errs() << "Elided Count: " << numElidedNode << "\n";
   std::sort(elidedLoopInstsId.begin(), elidedLoopInstsId.end());
   errs() << "Elided Hash: " << elidedHash(elidedLoopInstsId) << "\n";
+#endif
 
   //// replace external function calls to wrapper function calls
   replaceExternalFunctionCalls(m);

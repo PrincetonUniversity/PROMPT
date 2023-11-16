@@ -141,7 +141,10 @@ void SLAMP_init(uint32_t max_inst, uint32_t fn_id, uint32_t loop_id) {
 
   // flush
   PRODUCE_QUEUE_FLUSH_AND_WAIT();
+  SLAMP_report_control_block((void *)cb);
 }
+
+void SLAMP_report_control_block(void *cb) ATTRIBUTE(optnone) {}
 
 void SLAMP_fini(const char *filename) {
   PRODUCE_FINISHED();
