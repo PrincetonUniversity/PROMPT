@@ -48,8 +48,8 @@ using std::string;
 #define QTYPE uint32_t
 #ifndef QSIZE
 #define QSIZE_BYTES                                                            \
-  (1 << 20) // 1 << 0 - 1 byte; 1 << 10 1KB; 1 << 20 1MB; 1 << 24 16MB; 1 << 26
-// (1 << 27) // 1 << 0 - 1 byte; 1 << 10 1KB; 1 << 20 1MB; 1 << 24 16MB; 1 << 26
+  (1 << 27) // 1 << 0 - 1 byte; 1 << 10 1KB; 1 << 20 1MB; 1 << 24 16MB; 1 << 26
+// (1 << 10) // 1 << 0 - 1 byte; 1 << 10 1KB; 1 << 20 1MB; 1 << 24 16MB; 1 << 26
 // 64MB; 1 << 28 256MB; 1 << 30 1GB
 #define QSIZE (QSIZE_BYTES / sizeof(QTYPE))
 // #define QSIZE (1 << 23)
@@ -263,6 +263,32 @@ VOID Trace(TRACE trace, VOID *v) {
             << RTN_FindNameByAddress(TRACE_Address(trace)) << std::endl;
   // #endif
 
+  // if the function starts with "_dl", "do_lookup_x" or "check_match", don't
+  // instrument
+  auto name = RTN_FindNameByAddress(TRACE_Address(trace));
+  if (name.find("_dl") == 0 || name.find("do_lookup_x") == 0 ||
+      name.find("check_match") == 0) {
+    std::cerr << "trace in dynamic linker" << std::endl;
+    return;
+  }
+
+  // if is "_IO_fgets", don't instrument
+  if (name == "_IO_fgets") {
+    std::cerr << "trace in IO" << std::endl;
+    return;
+  }
+  // not __vfprintf_internal
+  if (name == "__vfprintf_internal") {
+    std::cerr << "trace in IO" << std::endl;
+    return;
+  }
+
+  // not anything with "*alloc"
+  if (name.find("alloc") != std::string::npos) {
+    std::cerr << "trace in alloc" << std::endl;
+    return;
+  }
+
   // if from the main image, don't instrument
   if (TRACE_Address(trace) >= start_image_addr &&
       TRACE_Address(trace) <= end_image_addr) {
@@ -281,8 +307,8 @@ VOID Trace(TRACE trace, VOID *v) {
 
       UINT32 memoryOperands = INS_MemoryOperandCount(ins);
 
-      std::cerr << "Instruction " << INS_Disassemble(ins)
-                << " has memory operands " << memoryOperands << std::endl;
+      // std::cerr << "Instruction " << INS_Disassemble(ins)
+      //           << " has memory operands " << memoryOperands << std::endl;
 
       for (UINT32 memOp = 0; memOp < memoryOperands; memOp++) {
         UINT32 refSize = INS_MemoryOperandSize(ins, memOp);

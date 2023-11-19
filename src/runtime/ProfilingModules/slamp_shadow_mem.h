@@ -219,23 +219,34 @@ public:
         break;
       }
 
-      // if contains libxxx.so, then allocate
-      if (strstr(name, ".so")) {
+      // FIXME: major HACk
+      // allocate everything as long as it doesn't contain "/dev/shm" and not
+      // "pin"
+      if (!strstr(name, "/dev/shm") && !strstr(name, "pin")) {
         allocate(reinterpret_cast<void *>(start), end - start);
-        after_lib = true;
-        continue;
+        // if it's  libc*.so, then allocate 0x4000 more
+        if (strstr(name, "libc") && strstr(name, ".so")) {
+          allocate(reinterpret_cast<void *>(end), 0x4000);
+        }
       }
 
-      // FIXME: if contain .exe, then allocate
-      if (strstr(name, ".exe")) {
-        allocate(reinterpret_cast<void *>(start), end - start);
-        continue;
-      }
+      // // if contains libxxx.so, then allocate
+      // if (strstr(name, ".so")) {
+      //   allocate(reinterpret_cast<void *>(start), end - start);
+      //   after_lib = true;
+      //   continue;
+      // }
 
-      // locale
-      if (strstr(name, "locale")) {
-        allocate(reinterpret_cast<void *>(start), end - start);
-      }
+      // // FIXME: if contain .exe, then allocate
+      // if (strstr(name, ".exe")) {
+      //   allocate(reinterpret_cast<void *>(start), end - start);
+      //   continue;
+      // }
+
+      // // locale
+      // if (strstr(name, "locale")) {
+      //   allocate(reinterpret_cast<void *>(start), end - start);
+      // }
     }
 
     if (!allocated) {
