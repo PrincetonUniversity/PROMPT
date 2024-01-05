@@ -8,9 +8,9 @@ add_subdirectory(malloc_hook)
 add_subdirectory(ProfilingModules)
 add_subdirectory(frontend)
 
-if(DO_STATS)
+#if(DO_STATS)
   add_subdirectory(SLAMPstats)
-endif()
+  #endif()
 
 if(DO_COMPARE)
   add_subdirectory(SLAMPboost)

@@ -90,7 +90,7 @@ void SLAMP_fini(const char* filename){
   TURN_OFF_CUSTOM_MALLOC;
   // print stats to file
   std::ofstream stats_file;
-  stats_file.open(filename);
+  stats_file.open("stat.json");
 
   using json = nlohmann::json;
   json outfile;
