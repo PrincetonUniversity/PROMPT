@@ -489,7 +489,7 @@ void produce_32(uint32_t x) ATTRIBUTE(noinline) {
   // x));
   _mm_stream_si32((int *)&dq_data[dq_index], x);
 #else
-  data[index] = x;
+  dq_data[dq_index] = x;
   // dq_data[dq_index + 1] = 0;
   // dq_data[dq_index + 2] = 0;
   // dq_data[dq_index + 3] = 0;
@@ -519,9 +519,9 @@ void produce_8_24_32_64(uint8_t x, uint32_t y, uint32_t z, uint64_t w)
   _mm_stream_si32((int *)&dq_data[dq_index + 1], z);
   _mm_stream_si64((long long *)&dq_data[dq_index + 2], w);
 #else
-  data[index] = xy;
-  data[index + 1] = z;
-  *((uint64_t *)&data[index + 2]) = w;
+  dq_data[dq_index] = xy;
+  dq_data[dq_index + 1] = z;
+  *((uint64_t *)&dq_data[dq_index + 2]) = w;
 #endif
   dq_index += 4;
 
@@ -561,8 +561,8 @@ void produce_32_32(uint32_t x, uint32_t y) ATTRIBUTE(noinline) {
   _mm_stream_si32((int *)&dq_data[dq_index], x);
   _mm_stream_si32((int *)&dq_data[dq_index + 1], y);
 #else
-  data[index] = x;
-  data[index + 1] = y;
+  dq_data[dq_index] = x;
+  dq_data[dq_index + 1] = y;
   // data[index + 2] = 0;
   // data[index + 3] = 0;
 #endif
@@ -582,8 +582,8 @@ void produce_64_64(const uint64_t x, const uint64_t y) ATTRIBUTE(noinline) {
   // _mm_stream_si64((long long *) &data[index], x);
   // _mm_stream_si64((long long *) &data[index + 2], y);
 #else
-  *((uint64_t *)&data[index]) = x;
-  *((uint64_t *)&data[index + 2]) = y;
+  *((uint64_t *)&dq_data[dq_index]) = x;
+  *((uint64_t *)&dq_data[dq_index + 2]) = y;
 #endif
   dq_index += 4;
 
@@ -615,9 +615,9 @@ void produce_32_32_64(uint32_t x, uint32_t y, uint64_t z) ATTRIBUTE(noinline) {
   // _mm_stream_si128((__m128i *)(data + index), _mm_set_epi32( z >> 32, z &
   // 0xFFFFFFFF, y, x));
 #else
-  data[index] = x;
-  data[index + 1] = y;
-  *(uint64_t *)&data[index + 2] = z;
+  dq_data[dq_index] = x;
+  dq_data[dq_index + 1] = y;
+  *(uint64_t *)&dq_data[dq_index + 2] = z;
 #endif
   dq_index += 4;
   if (dq_index >= QSIZE_GUARD) [[unlikely]] {
@@ -636,10 +636,10 @@ void produce_32_32_32(uint32_t x, uint32_t y, uint32_t z) ATTRIBUTE(noinline) {
   // _mm_stream_si32((int *) &data[index+1], y);
   // _mm_stream_si32((int *) &data[index+2], z);
 #else
-  data[index] = x;
-  data[index + 1] = y;
-  data[index + 2] = z;
-  data[index + 3] = 0;
+  dq_data[dq_index] = x;
+  dq_data[dq_index + 1] = y;
+  dq_data[dq_index + 2] = z;
+  dq_data[dq_index + 3] = 0;
 #endif
   dq_index += 4;
   if (dq_index >= QSIZE_GUARD) [[unlikely]] {
