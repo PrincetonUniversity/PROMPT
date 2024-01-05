@@ -14,6 +14,7 @@ file(GLOB PRIVATEER_SOURCES "privateer/*.cpp")
 add_library(
   ProfilingModules STATIC
   DependenceModule.cpp
+  DependenceWithContextModule.cpp
   WholeProgramDependenceModule.cpp
   PointsToModule.cpp
   LoadedValueModule.cpp

@@ -252,7 +252,7 @@ if __name__ == "__main__":
     # };
     module_to_index = {
         "dep": 0,
-        "dep-context": 0,
+        "dep-context": 6,
         "pt": 1,
         "lv": 2,
         "ol": 3,
