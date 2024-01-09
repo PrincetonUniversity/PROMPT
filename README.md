@@ -35,6 +35,21 @@ source PROMPT/install/PROMPT.rc
 PROFILEARGS="aminos 1234 123" slamp-driver benchmark.plain.bc md for.cond219
 ```
 
+### Add a New Profiling Module
+
+- Event `src/runtime/Events/configs`
+  - Add a new config file in the events
+- Frontend `src/runtime/frontend`
+  - Add in the CMakeLists.txt
+  - Modify the `FrontendGenerator.py` to add a new module
+- Logic `src/runtime/ProfilingModules`
+  - Implement and add header `.cpp` and `.h` file
+  - Register the `.cpp` file in the `CMakeLists.txt`
+- Backend
+  - Currently in `SLAMPcustom/consumer/consumer.cpp`
+    - Add a new loop to process the events, import the header and instantiate the module
+  - Will be moved to `src/runtime/backend`
+
 #### Make Sense of the Output
 
 The default output is at result.slamp.profile.
