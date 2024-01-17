@@ -49,9 +49,9 @@ def get_named_bc(bc_file):
             args.bc_file,
             "-o",
             named_bc,
-            "-load",
+            "-load-pass-plugin="+
             SLAMP_LIB_PATH,
-            "-prompt-metadata-namer",
+            "-passes=prompt-metadata-namer",
         ],
         check=True,
     )
@@ -70,7 +70,7 @@ def compile_frontend(bc_file, module, target_fcn, target_loop, compile_output):
     exe = bc_file.replace(".bc", ".slamp.exe")
 
     instrument_cmd = (
-        f"opt -load {SLAMP_LIB_PATH} -slamp-insts -o {prelink_bc} {bc_file}"
+        f"opt -load-pass-plugin={SLAMP_LIB_PATH} -passes=slamp-insts -o {prelink_bc} {bc_file}"
     )
     if target_loop is None:
         instrument_cmd += " -slamp-target-loop-enabled=0"
