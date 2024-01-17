@@ -70,16 +70,16 @@ def compile_frontend(bc_file, module, target_fcn, target_loop, compile_output):
     exe = bc_file.replace(".bc", ".slamp.exe")
 
     instrument_cmd = (
-        f"opt -load-pass-plugin={SLAMP_LIB_PATH} -passes=slamp-insts -o {prelink_bc} {bc_file}"
+        f"opt -load {SLAMP_LIB_PATH} -load-pass-plugin={SLAMP_LIB_PATH} -passes=slamp-insts -o {prelink_bc} {bc_file}"
     )
     if target_loop is None:
-        instrument_cmd += " -slamp-target-loop-enabled=0"
+        instrument_cmd += " -lists slamp-target-loop-enabled=0"
     else:
         instrument_cmd += (
-            f" -slamp-target-loop-enabled=1 -slamp-target-loop={target_loop}"
+            f" -lists slamp-target-loop-enabled=1 -lists slamp-target-loop={target_loop}"
         )
     if target_fcn is not None:
-        instrument_cmd += f" -slamp-target-fn={target_fcn}"
+        instrument_cmd += f" -lists slamp-target-fn={target_fcn}"
 
     print(f"{GREEN}Instrumenting{NC}: {instrument_cmd}")
     subprocess.run(
