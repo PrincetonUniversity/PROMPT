@@ -59,7 +59,7 @@ llvmGetPassPluginInfo() {
             PB.registerPipelineParsingCallback(
                 [](llvm::StringRef Name, llvm::ModulePassManager &MPM,
                    llvm::ArrayRef<llvm::PassBuilder::PipelineElement>) {
-                  if (Name == "prompt-namer") {
+                  if (Name == "prompt-metadata-namer") {
                     MPM.addPass(liberty::Namer());
                     return true; // Successfully handled the given pipeline name
                   }
