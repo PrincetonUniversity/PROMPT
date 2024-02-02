@@ -19,6 +19,8 @@ static inline uint64_t rdtsc() {
   return (d << 32) | a;
 }
 
+// TODO: make it templated, takes in the declaration file and template it out
+// either through a python script or a small separate C++ program per module
 void consume_loop(ProfilingModule &mod) ATTRIBUTE(noinline) {
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
