@@ -211,14 +211,16 @@ if __name__ == "__main__":
     argparser.add_argument("--skip-run", help="Skip run", action="store_true")
     argparser.add_argument("--output", help="Output file")
     argparser.add_argument("--timeout", help="Timeout", default=72000)
+    argparser.add_argument("--named", help="Provide the named bc", default=None)
     argparser.add_argument("--exe", help="The executable to run", default=None)
     argparser.add_argument(
         "--runtime-file", help="The file to store runtime", default="slamp.time"
     )
+    argparser.add_argument("--stop-at-named", help="Get the named bitcode then exit", action="store_true")
     args = argparser.parse_args()
 
-    # if no bc_file is provided, has to provide the executable
-    if args.bc_file is None and args.exe is None:
+    # if no bc_file is provided, has to provide the executable or named bc file
+    if args.bc_file is None and args.exe is None and args.named is None:
         raise RuntimeError("Either bc_file or exe has to be provided")
 
     if args.exe is not None and args.skip_build is False:
@@ -227,11 +229,19 @@ if __name__ == "__main__":
     # TODO: check for target_fcn and target_loop for module that requires them
     if not args.skip_build:
         # check if the bitcode file exists
-        if not os.path.exists(args.bc_file):
+        if args.named and not os.path.exists(args.named):
+            raise RuntimeError(f"{args.named} does not exist")
+        if args.bc_file and not os.path.exists(args.bc_file):
             raise RuntimeError(f"{args.bc_file} does not exist")
 
         # TODO: this is optional, if existing named bitcode is provided, we can skip this step
-        named_bc = get_named_bc(args.bc_file)
+        if args.named is not None:
+          named_bc = args.named
+        else:
+          named_bc = get_named_bc(args.bc_file)
+        # exit after getting the named bitcode
+        if(args.stop_at_named):
+          exit(1)
         with open("compile.log", "w") as compile_output:
             compile_frontend(
                 named_bc, args.module, args.target_fcn, args.target_loop, compile_output
