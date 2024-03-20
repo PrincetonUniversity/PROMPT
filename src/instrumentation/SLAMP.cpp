@@ -876,6 +876,18 @@ void SLAMP::instrumentGlobalVars(Module &m, Function *ctor) {
 
     if (func->isIntrinsic())
       continue;
+    else if (func->getName().find("queuePop") != std::string::npos)
+      continue;
+    else if (func->getName().find("queuePush") != std::string::npos)
+      continue;
+    else if (func->getName() == "stageExecuter") {
+      continue;
+    }
+    else if(func->getName().find("NOELLE") != std::string::npos) {
+      continue;
+    }
+    else if(func->getName().find("HELIX") != std::string::npos)
+      continue;
 
     uint64_t size = td.getTypeStoreSize(func->getType());
 
