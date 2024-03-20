@@ -241,7 +241,7 @@ if __name__ == "__main__":
           named_bc = get_named_bc(args.bc_file)
         # exit after getting the named bitcode
         if(args.stop_at_named):
-          exit(1)
+          exit(0)
         with open("compile.log", "w") as compile_output:
             compile_frontend(
                 named_bc, args.module, args.target_fcn, args.target_loop, compile_output
