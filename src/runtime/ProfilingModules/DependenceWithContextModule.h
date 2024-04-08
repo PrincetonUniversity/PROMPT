@@ -10,8 +10,8 @@
 #include "HTContainer.h"
 #include "LocalWriteModule.h"
 
-#define TRACK_COUNT
-#define TRACK_MIN_DISTANCE
+//#define TRACK_COUNT
+//#define TRACK_MIN_DISTANCE
 
 #define TRACK_WAW
 #define TRACK_WAR
