@@ -23,6 +23,8 @@ enum UnifiedAction : char {
   FUNC_EXIT,
   POINTS_TO_INST,
   POINTS_TO_ARG,
+  FUNC_CALL_PUSH,
+  FUNC_CALL_POP,
   FINISHED
 };
 

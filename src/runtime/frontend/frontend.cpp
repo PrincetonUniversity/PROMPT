@@ -102,6 +102,14 @@ static uint32_t ext_fn_inst_id = 0;
 #define PRODUCE_STORE(size, instr, addr)
 #endif
 
+#ifndef PRODUCE_FUNC_CALL_PUSH
+#define PRODUCE_FUNC_CALL_PUSH(inst_id)
+#endif
+
+#ifndef PRODUCE_FUNC_CALL_POP
+#define PRODUCE_FUNC_CALL_POP()
+#endif
+
 static volatile char *lc_dummy = NULL;
 
 PRODUCE_QUEUE_DEFINE();
@@ -342,8 +350,9 @@ void memalign_callback(void *ptr, size_t alignment, size_t size) {
 
 // FIXME: a bunch of unused functions
 void SLAMP_main_entry(uint32_t argc, char **argv, char **env) {}
-void SLAMP_push(const uint32_t instr) {}
-void SLAMP_pop() {}
+void SLAMP_push(const uint32_t instr) { PRODUCE_FUNC_CALL_PUSH(instr); }
+void SLAMP_pop() { PRODUCE_FUNC_CALL_POP(); }
+
 void SLAMP_allocated(uint64_t addr) {}
 
 void SLAMP_callback_stack_alloca(uint32_t instr, void *ptr, uint64_t array_size,
