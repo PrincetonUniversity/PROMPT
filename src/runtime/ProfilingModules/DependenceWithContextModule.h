@@ -37,6 +37,7 @@ private:
 
   unsigned int context = 0;
   int nested_level = 0;
+  int callgraph_level = 0;
 
 #ifdef COLLECT_TRACE
   // Collect trace

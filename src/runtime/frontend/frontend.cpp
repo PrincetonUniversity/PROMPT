@@ -350,8 +350,8 @@ void memalign_callback(void *ptr, size_t alignment, size_t size) {
 
 // FIXME: a bunch of unused functions
 void SLAMP_main_entry(uint32_t argc, char **argv, char **env) {}
-void SLAMP_push(const uint32_t instr) { PRODUCE_FUNC_CALL_PUSH(instr); }
-void SLAMP_pop() { PRODUCE_FUNC_CALL_POP(); }
+void SLAMP_push(const uint32_t instr) { if(on_profiling) PRODUCE_FUNC_CALL_PUSH(instr); }
+void SLAMP_pop() { if(on_profiling) PRODUCE_FUNC_CALL_POP(); }
 
 void SLAMP_allocated(uint64_t addr) {}
 
