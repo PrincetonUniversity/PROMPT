@@ -190,16 +190,28 @@ void DependenceWithContextModule::loop_exit() __attribute__((always_inline)) {
   nested_level--;
 }
 
-void DependenceWithContextModule::func_entry(uint32_t instr) {
-  if (nested_level == 1) {
+//void DependenceWithContextModule::func_entry(uint32_t instr) {
+//  if (nested_level == 1) {
+//    context = instr;
+//  }
+//}
+//
+//void DependenceWithContextModule::func_exit(uint32_t instr) {
+//  if (nested_level == 1) {
+//    context = 0;
+//  }
+//}
+
+void DependenceWithContextModule::push(uint32_t instr) __attribute__((always_inline)) {
+  if(func_level == 0)
     context = instr;
-  }
+  func_level++;
 }
 
-void DependenceWithContextModule::func_exit(uint32_t instr) {
-  if (nested_level == 1) {
+void DependenceWithContextModule::pop() __attribute__((always_inline)) {
+  func_level--;
+  if(func_level == 0)
     context = 0;
-  }
 }
 
 void DependenceWithContextModule::merge_dep(DependenceWithContextModule &other) {

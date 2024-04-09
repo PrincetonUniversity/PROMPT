@@ -37,6 +37,7 @@ private:
 
   unsigned int context = 0;
   int nested_level = 0;
+  int func_level = 0;
 
 #ifdef COLLECT_TRACE
   // Collect trace
@@ -80,8 +81,11 @@ public:
   void loop_invoc();
   void loop_iter();
   void loop_exit();
-  void func_entry(uint32_t context);
-  void func_exit(uint32_t context);
+  //void func_entry(uint32_t context);
+  //void func_exit(uint32_t context);
+  //FIXME: do we also need ext_push/pop?
+  void push(uint32_t instr);
+  void pop();
 
   void merge_dep(DependenceWithContextModule &other);
 };
