@@ -317,8 +317,12 @@ private:
       const auto set_size = buffer.size() / thread_count;
       const auto buffer_size = buffer.size();
 
+      // FIXME: this is not correct when it's not filling up
       auto begin = id * (buffer_size / thread_count);
       auto end = (id + 1) * (buffer_size / thread_count);
+      if (id == thread_count - 1) {
+        end = buffer_size;
+      }
 
       // for each element in the chunk, insert into the map, and increment the
       // count from begin to end
@@ -517,6 +521,9 @@ private:
           it->second++;
         }
       }
+
+      buffer.resize(0);
+      buffer.reserve(BUFFER_SIZE);
       return;
     }
 
@@ -541,6 +548,8 @@ private:
         break;
       }
     }
+    buffer.resize(0);
+    buffer.reserve(BUFFER_SIZE);
 #endif
 
 #ifndef HT_THREAD_POOL
@@ -721,6 +730,8 @@ public:
   // provide [] operator
   auto &operator[](const TK &key) {
     convertVectorToSet(true);
+    buffer.resize(0);
+    buffer.reserve(BUFFER_SIZE);
     return map[key];
   }
 
