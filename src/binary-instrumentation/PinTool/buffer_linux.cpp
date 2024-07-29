@@ -191,6 +191,7 @@ VOID ExternalStartWrapper(CONTEXT *ctxt, const uint32_t id) {
   //                             AFUNPTR(ext_push_funptr), NULL, PIN_PARG(void),
   //                             PIN_PARG(uint32_t), id, PIN_PARG_END());
   PIN_ENABLED = true;
+  // std::cerr << "Pin enabled" << std::endl;
 }
 
 // Replace SLAMP_ext_pop with ext_pop_wrapper
@@ -223,7 +224,9 @@ VOID InsertReadToBuffer(ADDRINT memAddr, uint32_t size, INS *ins) {
   // std::endl; MEMREF ref{memAddr, size, true};
   // buffer.buf[buffer.num_elements++] = ref;
   // // FIXME: check for capacity
-  produce_8_32_64(1, ext_id, memAddr);
+  if (PIN_ENABLED) {
+    produce_8_32_64(1, ext_id, memAddr);
+  }
 }
 
 VOID InsertWriteToBuffer(ADDRINT memAddr, uint32_t size, INS *ins) {
@@ -235,7 +238,9 @@ VOID InsertWriteToBuffer(ADDRINT memAddr, uint32_t size, INS *ins) {
   // MEMREF ref{memaddr, size, false};
   // buffer.buf[buffer.num_elements++] = ref;
   // // FIXME: check for capacity
-  produce_8_32_64(2, ext_id, memAddr);
+  if (PIN_ENABLED) {
+    produce_8_32_64(2, ext_id, memAddr);
+  }
 }
 
 /**************************************************************************
@@ -258,6 +263,15 @@ VOID Trace(TRACE trace, VOID *v) {
     return;
   }
 
+  // if from the main image, don't instrument
+  if (TRACE_Address(trace) >= start_image_addr &&
+      TRACE_Address(trace) <= end_image_addr) {
+#if DEBUG_PIN
+    std::cerr << "trace in main image" << std::endl;
+#endif
+    return;
+  }
+
   // #if DEBUG_PIN
   std::cerr << "trace " << TRACE_Address(trace) << " "
             << RTN_FindNameByAddress(TRACE_Address(trace)) << std::endl;
@@ -269,32 +283,57 @@ VOID Trace(TRACE trace, VOID *v) {
   if (name.find("_dl") == 0 || name.find("do_lookup_x") == 0 ||
       name.find("check_match") == 0) {
     std::cerr << "trace in dynamic linker" << std::endl;
+    PIN_ENABLED = false;
+    return;
+  }
+
+  // do not include `time`
+  if (name.find("time") != std::string::npos) {
+    std::cerr << "trace in time" << std::endl;
+    PIN_ENABLED = false;
     return;
   }
 
   // if is "_IO_fgets", don't instrument
   if (name == "_IO_fgets") {
     std::cerr << "trace in IO" << std::endl;
+    PIN_ENABLED = false;
     return;
   }
   // not __vfprintf_internal
   if (name == "__vfprintf_internal") {
     std::cerr << "trace in IO" << std::endl;
+    PIN_ENABLED = false;
     return;
   }
 
   // not anything with "*alloc"
-  if (name.find("alloc") != std::string::npos) {
+  if (name.find("alloc") != std::string::npos ||
+      name.find("free") != std::string::npos ||
+      name.find("memalign") != std::string::npos ||
+      name.find("mmap") != std::string::npos) {
     std::cerr << "trace in alloc" << std::endl;
+    PIN_ENABLED = false;
+    std::cerr << "Pin disabled" << std::endl;
+
+    // insert a function at the beginning of this function
+    // to set the PIN_ENABLED to false if it's alloc related
+
+    INS_InsertCall(BBL_InsHead(TRACE_BblHead(trace)), IPOINT_BEFORE,
+                   (AFUNPTR)ExternalStopWrapper, IARG_CONTEXT, IARG_UINT32, 0,
+                   IARG_END);
+    
+    // FIXME: still need to recover from this allocation
+
     return;
   }
 
-  // if from the main image, don't instrument
-  if (TRACE_Address(trace) >= start_image_addr &&
-      TRACE_Address(trace) <= end_image_addr) {
-#if DEBUG_PIN
-    std::cerr << "trace in main image" << std::endl;
-#endif
+  // not anything with "*scanf"
+  if (name.find("scanf") != std::string::npos ||
+      name.find("printf") != std::string::npos) {
+    std::cerr << "trace in IO" << std::endl;
+    PIN_ENABLED = false;
+    std::cerr << "Pin disabled" << std::endl;
     return;
   }
 
@@ -305,6 +344,9 @@ VOID Trace(TRACE trace, VOID *v) {
         continue;
       }
 
+      if (INS_IsPrefetch(ins)) {
+        continue;
+      }
       UINT32 memoryOperands = INS_MemoryOperandCount(ins);
 
       // std::cerr << "Instruction " << INS_Disassemble(ins)
