@@ -208,6 +208,7 @@ public:
 
         // FIXME: allocate existing heap (before main??)
         allocate(reinterpret_cast<void *>(start), end - start);
+        continue;
       }
 
       if (!strcmp(name, "[stack]")) {
@@ -216,6 +217,22 @@ public:
         printf("stack: %lx %lx\n", end - stack_size, end);
         allocate(reinterpret_cast<void *>(end - stack_size), stack_size);
         allocated = true;
+        // FIXME: include vdso and vvar
+        // break;
+        continue;
+      }
+
+      if (!strcmp(name, "[vvar]")) {
+        allocate(reinterpret_cast<void *>(start), end - start);
+        continue;
+      }
+
+      if (!strcmp(name, "[vdso]")) {
+        allocate(reinterpret_cast<void *>(start), end - start);
+        continue;
+      }
+
+      if (!strcmp(name, "[vsyscall]")) {
         break;
       }
 
@@ -228,6 +245,8 @@ public:
         if (strstr(name, "libc") && strstr(name, ".so")) {
           allocate(reinterpret_cast<void *>(end), 0x4000);
         }
+        // HACK: make sure the anounymous mapping after lib is allocated
+        after_lib = true;
       }
 
       // // if contains libxxx.so, then allocate
