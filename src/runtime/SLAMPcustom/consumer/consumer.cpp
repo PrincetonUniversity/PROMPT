@@ -1161,7 +1161,7 @@ void consume_loop(DoubleQueue &dq,
       dq.unpack_32_64(size, addr);
 
       if (CONSUME_DEBUG) {
-        std::cout << "ALLOC: " << addr << " " << size << std::endl;
+        std::cout << "REALLOC: " << addr << " " << size << std::endl;
       }
       if (ACTION) {
         measure_time(alloc_time, [&]() {

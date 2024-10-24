@@ -1,6 +1,10 @@
 #include "malloc.h"
 #include <stdbool.h>
 
+// #include <dlfcn.h>
+// #include <stddef.h>
+// #include <sys/mman.h>
+
 #include "malloc_hook.h"
 bool hook_enabled = false;
 
@@ -16,6 +20,21 @@ memalign_callback(void *ptr, size_t alignment, size_t size) {}
 
 void __attribute__((weak))
 calloc_callback(void *ptr, size_t nmemb, size_t size) {}
+
+// // Function pointer for the original mmap
+// static void *(*original_mmap)(void *, size_t, int, int, int, off_t) = NULL;
+
+// #ifndef RTLD_NEXT
+// #define RTLD_NEXT ((void *)-1l)
+// #endif
+
+// // Initialize the original mmap function pointer
+// static void init_original_mmap() {
+//   if (!original_mmap) {
+//     original_mmap = (void *(*)(void *, size_t, int, int, int, off_t))dlsym(
+//         RTLD_NEXT, "mmap");
+//   }
+// }
 
 #ifdef USE_MALLOC_HOOK
 static void *(*old_malloc_hook)(size_t, const void *);
@@ -132,5 +151,17 @@ void *memalign(size_t alignment, size_t size) {
   }
   return ptr;
 }
+
+// void *mmap(void *addr, size_t length, int prot, int flags, int fd,
+//            off_t offset) {
+//   init_original_mmap();
+//   void *ptr = original_mmap(addr, length, prot, flags, fd, offset);
+
+//   printf("mmap: %p\n", ptr);
+//   if (hook_enabled) {
+//     malloc_callback(ptr, length);
+//   }
+//   return ptr;
+// }
 
 #endif

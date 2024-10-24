@@ -115,7 +115,7 @@ def compile_frontend(bc_file, module, target_fcn, target_loop, compile_output):
     )
 
 
-def drive(exe, module_idx, threads, timeout=7200):
+def drive(exe, module_idx, threads, timeout=7200, use_pin=False):
     with get_shared_mem_queue() as slamp_queue_id, open(
         f"consumer.log", "w"
     ) as consumer_log_fd, open(f"producer.log", "w") as producer_log_fd:
@@ -135,6 +135,11 @@ def drive(exe, module_idx, threads, timeout=7200):
         time.sleep(1)
 
         producer_cmd = [exe] + shlex.split(PROFILEARGS)
+        if use_pin:
+            producer_cmd = ["/u/ziyangx/tmp/pin/pin-3.28-98749-g6643ecee5-gcc-linux/pin",
+                            "-t",
+                            "/u/NAS_SCRATCH/ziyangx/prompt-workspace/PROMPT/src/binary-instrumentation/PinTool/obj-intel64/buffer_linux.so",
+                            "--"] + producer_cmd
         p_producer = subprocess.Popen(
             producer_cmd,
             env=env,
@@ -212,6 +217,7 @@ if __name__ == "__main__":
     argparser.add_argument("--output", help="Output file")
     argparser.add_argument("--timeout", help="Timeout", default=72000)
     argparser.add_argument("--exe", help="The executable to run", default=None)
+    argparser.add_argument("--pin", help="Enable pin", action="store_true")
     argparser.add_argument(
         "--runtime-file", help="The file to store runtime", default="slamp.time"
     )
@@ -265,7 +271,7 @@ if __name__ == "__main__":
             raise RuntimeError(f"{exe} does not exist")
         # get the relative path to the executable
         exe = os.path.abspath(exe)
-        run_time = drive(exe, module_index, args.threads, timeout=args.timeout)
+        run_time = drive(exe, module_index, args.threads, timeout=args.timeout, use_pin=args.pin)
 
         print(f"{GREEN}Run time{NC}: {run_time}s")
 

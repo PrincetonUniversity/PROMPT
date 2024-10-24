@@ -1,7 +1,7 @@
 CURRENT_DIR:=$(shell pwd)
 
 BUILD_DIR?=${CURRENT_DIR}/build
-BUILD_TYPE?=Release
+BUILD_TYPE?=RelWithDebInfo
 INSTALL_DIR?=${CURRENT_DIR}/install
 # ON or OFF
 RUNTIME_LTO?=ON
