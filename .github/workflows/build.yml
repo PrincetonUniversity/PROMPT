@@ -81,6 +81,7 @@ jobs:
         with:
           repository: arcana-lab/noelle
           path: noelle
+          ref: v9
 
       - name: Build Noelle
         if: steps.cache.outputs.cache-hit != 'true'

@@ -19,7 +19,7 @@ The .rc file is generated in PROMPT/install
 #### Preprocessing
 
 1. Generate a single LLVM bitcode file
-2. (No need to do it manually if specifying a pair of function and basic block in `slamp-driver`) Annoteate Metadata ID for functions, basic blocks, and instructions with `-metadata-namer` pass
+2. (No need to do it manually if specifying a pair of function and basic block in `slamp-driver`) Annotate Metadata ID for functions, basic blocks, and instructions with `-metadata-namer` pass
 3. (optional) Run loop profile to generate `loopProf.out`
 
 #### Run PROMPT
@@ -73,6 +73,7 @@ Note that the first dependence of a loop is always `[loop id, 0, 0, 0, 0, 0]`, s
 ### TODOs
 
 #### Decoupling
+
 - [x] Compile with NOELLE and SCAF
 - [x] Compile with NOELLE and SCAF (without Speculation Modules)
 - [x] Seperate all profiling modules out
@@ -80,29 +81,28 @@ Note that the first dependence of a loop is always `[loop id, 0, 0, 0, 0, 0]`, s
 - [x] Convert producer library to be configurable
 
 #### Implementation
-- [ ] Replace malloc hook (removed in glibc 2.35)
+
 - [ ] External function handling: currently disabled in `SLAMP.cpp` by not doing the replacements
 - [ ] External function handling with correct report of allocation events
-- [ ] Multithreaded profiling?
 - [ ] Multiple loops at the same time
-- [ ] Package the components better
-    - The queue
-    - The container
 - [ ] Parallel Containers
     - Replace the vector with a lower-latency memory region
 - [ ] 16 bytes load and store handling
 
 #### Integration
+
 - [ ] Replace SpecPriv profiler and LAMP with PROMPT
     - Check the problem with the failed and long-running benchmarks
 
 #### Debug & Testing
+
 - [ ] Check the slowdown problem with multiple backend running together
 - [ ] Check the slowdown problem when multiple containers running together
 - [ ] Test with newer version of LLVM
 - [ ] Test with way bigger benchmarks
 
 #### Documentation
+
 - [ ] Preprocessing tasks
 - [ ] Simple demo
 - [ ] Get started doc

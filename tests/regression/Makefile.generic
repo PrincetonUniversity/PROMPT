@@ -65,6 +65,56 @@ $(PLAIN).o3.exe : $(PLAIN).o3.bc
 	loop-profile $<
 	date
 
+
+#
+# PROMPT profile
+#
+#
+benchmark.prompt.exe.wp-dep : benchmark.bc
+	prompt-driver benchmark.bc -m wp-dep --skip-run
+	- cp benchmark.named.slamp.exe $@
+
+benchmark.prompt.exe.privateer : benchmark.bc
+	prompt-driver benchmark.bc -m privateer --skip-run
+	- cp benchmark.named.slamp.exe $@
+
+
+benchmark.prompt.exe.% : benchmark.bc
+	prompt-driver benchmark.bc -m $* --skip-run --target-loop $(TARGET_LOOP) --target-fcn $(TARGET_FCN)
+	- cp benchmark.named.slamp.exe $@
+
+benchmark.result.prompt.profile.ol : benchmark.prompt.exe.ol
+	date
+	$(PROFILESETUP)
+	$(SETUP)
+	PROFILEARGS="$(PROFILEARGS)" prompt-driver -m ol --skip-build --exe benchmark.prompt.exe.ol -t 1
+	$(CLEANUP)
+	date
+
+benchmark.result.prompt.profile.privateer: benchmark.prompt.exe.privateer
+	date
+	$(PROFILESETUP)
+	$(SETUP)
+	PROFILEARGS="$(PROFILEARGS)" prompt-driver -m privateer --skip-build --exe benchmark.prompt.exe.privateer -t 1
+	$(CLEANUP)
+	date
+
+benchmark.result.prompt.profile.wp-dep : benchmark.prompt.exe.wp-dep
+	date
+	$(PROFILESETUP)
+	$(SETUP)
+	PROFILEARGS="$(PROFILEARGS)" prompt-driver -m wp-dep --skip-build --exe benchmark.prompt.exe.wp-dep -t 1
+	$(CLEANUP)
+	date
+
+benchmark.result.prompt.profile.% : benchmark.prompt.exe.%
+	date
+	$(PROFILESETUP)
+	$(SETUP)
+	PROFILEARGS="$(PROFILEARGS)" prompt-driver -m $* --skip-build --exe benchmark.prompt.exe.$* -t 8
+	$(CLEANUP)
+	date
+
 #
 # SLAMP profile
 #
