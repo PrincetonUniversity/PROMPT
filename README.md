@@ -1,41 +1,66 @@
-## PROMPT: A Fast and Extensible Memory Profiling Framework
+# PROMPT: A Fast and Extensible Memory Profiling Framework
 
-### Build
+PROMPT is a fast and extensible memory profiling framework that can be used to
+gather memory dependences and other memory-related profiles in a program.
 
-Need to use LLVM/Clang as the compiler for the support of LLVM.
-Need to make sure LLVMgold is installed.
+- Paper: https://dl.acm.org/doi/10.1145/3649827
+- Artifact: https://zenodo.org/records/10783906
 
-```
+## Building PROMPT
+
+### Dependencies
+
+PROMPT currently requires LLVM 9 for building the preprocessing and
+instrumentation passes.  It uses Clang for compiling itself and also requires
+LLVM/Clang 9 for compiling programs for profiling. It uses LLVMgold for
+link-time optimization.
+
+### Build Commands
+
+``` bash
 cd PROMPT
 export PATH=${llvm install bin directory}:$PATH
 make build # By default install to PROMPT/build
 make install # By default install to PROMPT/install
 ```
 
-The .rc file is generated in PROMPT/install
+The `.rc` file is generated in the install directory. It sets up all the
+environment variables for using PROMPT.
 
-### Use PROMPT
+## Using PROMPT
 
-#### Preprocessing
+### Preprocessing Program to Profile
 
-1. Generate a single LLVM bitcode file
-2. (No need to do it manually if specifying a pair of function and basic block in `slamp-driver`) Annotate Metadata ID for functions, basic blocks, and instructions with `-metadata-namer` pass
-3. (optional) Run loop profile to generate `loopProf.out`
+Generate a single LLVM bitcode file (compile each source file into bitcode then
+link together with `llvm-link`, or use other tools like
+[Noelle](https://github.com/arcana-lab/noelle))
 
-#### Run PROMPT
+### Run PROMPT for a Specific Loop
 
 1. Source PROMPT.rc generated in the install directory
 2. If the program requires command line arguments, export `PROFILEARGS`
-3. Run `slamp-driver` with one or three command line arguments, (1) the bitcode file name, and optionally (2) function name, and (3) basic block name. When only providing one argument, `slamp-driver` will look for loop profile output `loopProf.out` and use it to get all hot loops to profile.
+3. Run `prompt-driver` with  the bitcode file name and module name. And if the module targets one loop, also put function name, basic block name.
 
 Example:
-```bash
+
+``` bash
 source PROMPT/install/PROMPT.rc
-# Or slamp-driver benchmark.bc if there is proper loop profile
-PROFILEARGS="aminos 1234 123" slamp-driver benchmark.plain.bc md for.cond219
+PROFILEARGS="aminos 1234 123" prompt-driver benchmark.plain.bc md for.cond219
+PROFILEARGS="$(PROFILEARGS)" prompt-driver  benchmark.plain.bc -m dep --target-loop for.cond219 --target-func md
 ```
 
-### Add a New Profiling Module
+See `prompt-driver --help` for more options.
+
+### Run PROMPT with Loop Profile (decprecated, need CPF)
+
+Run loop profile to generate `loopProf.out` (included in
+[CPF](https://github.com/PrincetonUniversity/cpf))
+
+When only providing one argument, `slamp-driver` will look for loop profile
+output `loopProf.out` and use it to get all hot loops to profile.
+
+
+## Add a New Profiling Module
 
 - Event `src/runtime/Events/configs`
   - Add a new config file in the events
@@ -50,11 +75,12 @@ PROFILEARGS="aminos 1234 123" slamp-driver benchmark.plain.bc md for.cond219
     - Add a new loop to process the events, import the header and instantiate the module
   - Will be moved to `src/runtime/backend`
 
-#### Make Sense of the Output
+### Make Sense of the Output
 
 The default output is at result.slamp.profile.
 
 When used as a memory dependence profiler, PROMPT generates a output file where each dependence consists of six numbers, following this format:
+
 ```
 [loop id, source id, bare destination id, destination id, is loop carried, count]
 ```
@@ -70,43 +96,32 @@ where:
 
 Note that the first dependence of a loop is always `[loop id, 0, 0, 0, 0, 0]`, showing that a loop has been profiled.
 
-### TODOs
 
-#### Decoupling
+## FAQs
 
-- [x] Compile with NOELLE and SCAF
-- [x] Compile with NOELLE and SCAF (without Speculation Modules)
-- [x] Seperate all profiling modules out
-- [x] Make LTO optional
-- [x] Convert producer library to be configurable
+- Why LLVM 9?
 
-#### Implementation
+PROMPT was developed and tested with LLVM 9. It was developed with many other
+research compiler projects (NOELLE, CPF, SCAF, etc.) that were also using LLVM 9.
+Since NOELLE and SCAF have been updated to LLVM 14, we have plans to update it
+to support newer versions of LLVM (LLVM 14 and LLVM 18). Contributions are
+welcome.
 
-- [ ] External function handling: currently disabled in `SLAMP.cpp` by not doing the replacements
-- [ ] External function handling with correct report of allocation events
-- [ ] Multiple loops at the same time
-- [ ] Parallel Containers
-    - Replace the vector with a lower-latency memory region
-- [ ] 16 bytes load and store handling
+- What is SLAMP?
 
-#### Integration
+SLAMP was the original name for the single loop memory dependence profiler
+before the project was extended and renamed to PROMPT. Not all names are
+properly fixed after the name change so there are still reference to SLAMP. In
+most context, SLAMP and PROMPT are interchangable.
 
-- [ ] Replace SpecPriv profiler and LAMP with PROMPT
-    - Check the problem with the failed and long-running benchmarks
+- Is it still maintained?
 
-#### Debug & Testing
+Due to the capacity of the main author, the project is maintained in a best
+effort basis.  However, we plan to improve automation and documentation for
+PROMPT so it is easier to develop with PROMPT.  We also welcome contributions
+from the community.
 
-- [ ] Check the slowdown problem with multiple backend running together
-- [ ] Check the slowdown problem when multiple containers running together
-- [ ] Test with newer version of LLVM
-- [ ] Test with way bigger benchmarks
+- Beyond LLVM Instrumentation
 
-#### Documentation
-
-- [ ] Preprocessing tasks
-- [ ] Simple demo
-- [ ] Get started doc
-- [ ] Extending with new profiler doc
-
-### Modules
-
+There is also some effort of supporting binary instrumentation with Pin in the
+`Pin` branch.
