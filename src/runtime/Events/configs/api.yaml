@@ -47,6 +47,10 @@ events:
     function_id: 32
   func_exit:
     function_id: 32
+  func_call_push:
+    inst_id: 32
+  func_call_pop:
+    # no arg
   points_to_inst:
     inst_id: 32
     ptr: 64

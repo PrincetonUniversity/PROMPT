@@ -191,13 +191,15 @@ void DependenceWithContextModule::loop_exit() __attribute__((always_inline)) {
 }
 
 void DependenceWithContextModule::func_entry(uint32_t instr) {
-  if (nested_level == 1) {
+  if(callgraph_level == 0) {
     context = instr;
   }
+  callgraph_level++;
 }
 
 void DependenceWithContextModule::func_exit(uint32_t instr) {
-  if (nested_level == 1) {
+  callgraph_level--;
+  if(callgraph_level == 0) {
     context = 0;
   }
 }

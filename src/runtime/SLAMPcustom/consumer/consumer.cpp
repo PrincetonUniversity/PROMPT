@@ -56,6 +56,8 @@ enum class UnifiedAction : char {
   FUNC_EXIT,
   POINTS_TO_INST,
   POINTS_TO_ARG,
+  FUNC_CALL_PUSH,
+  FUNC_CALL_POP,
   FINISHED
 };
 
@@ -1273,7 +1275,8 @@ void consume_loop(DoubleQueue &dq,
 }
 
 void consume_loop_dep_with_context(DoubleQueue &dq,
-                  DependenceWithContextModule &depMod) CONSUME_LOOP_ATTRIBUTES {
+                                   DependenceWithContextModule &depMod)
+    CONSUME_LOOP_ATTRIBUTES {
   uint64_t rdtsc_start = 0;
   uint64_t counter = 0;
   uint32_t loop_id;
@@ -1414,6 +1417,17 @@ void consume_loop_dep_with_context(DoubleQueue &dq,
       depMod.func_exit(func_id);
       break;
     };
+    case Action::FUNC_CALL_PUSH: {
+      uint32_t caller_id;
+      dq.unpack_32(caller_id);
+      depMod.func_entry(caller_id);
+      break;
+    };
+    case Action::FUNC_CALL_POP: {
+      depMod.func_exit(0);
+      break;
+    };
+
 #ifdef UNIFIED_WORKFLOW
     case Action::FREE:
     case Action::LOOP_ENTRY:
@@ -1718,7 +1732,10 @@ int main(int argc, char **argv) {
       std::cout << "Running in " << THREAD_COUNT << " threads" << std::endl;
       for (unsigned i = 0; i < THREAD_COUNT; i++) {
         threads.emplace_back(
-            [&](unsigned id) { consume_loop_dep_with_context(*dqs[id], *depMods[id]); }, i);
+            [&](unsigned id) {
+              consume_loop_dep_with_context(*dqs[id], *depMods[id]);
+            },
+            i);
       }
 
       for (auto &t : threads) {

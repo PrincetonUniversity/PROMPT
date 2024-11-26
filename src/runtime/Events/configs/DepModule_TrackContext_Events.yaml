@@ -10,6 +10,9 @@ events:
   target_loop_invoc: []
   target_loop_iter: []
   target_loop_exit: []
-  func_entry: [function_id] # optional if tracking context
-  func_exit: [function_id] # optional if tracking context
+  func_call_push: [inst_id] # optional if tracking context
+  func_call_pop: [] # optional if tracking context
   finished: []
+
+  # func_entry: [function_id] # optional if tracking context
+  # func_exit: [function_id] # optional if tracking context
